@@ -4,6 +4,20 @@
 --@include https://raw.githubusercontent.com/AstricUnion/Libs/refs/heads/main/holos.lua as holos
 require("holos")
 
+local function tablePart(multiplier)
+    local clipOffset = 35
+    local scale = Vector(6, 12, 12)
+    local position = Vector(36, 0, 0)
+    return Holo(
+        SubHolo(Vector(0, 0, 36) - position * multiplier, Angle(), "models/holograms/plane.mdl", scale, nil, Color(150,200,150),"models/props_pipes/GutterMetal01a"),
+        nil,
+        {
+            Clip(Vector(-clipOffset, -clipOffset, 0) * multiplier, Vector(0.5, 0.5, 0) * multiplier),
+            Clip(Vector(-clipOffset, clipOffset, 0) * multiplier, Vector(0.5, -0.5, 0) * multiplier),
+        }
+    )
+end
+
 tableholos = {
     hologram.createPart(
         Holo(Rig(Vector(0))),
@@ -39,6 +53,12 @@ tableholos = {
     ),
     hologram.createPart(
         Holo(Rig(Vector(0,0,36))),
+        tablePart(1),
+        tablePart(-1)
+    )
+    --[[
+    hologram.createPart(
+        Holo(Rig(Vector(0,0,36))),
         Holo(SubHolo(Vector(0,0,36),Angle(0),"models/hunter/blocks/cube075x075x025.mdl",Vector(3,3,0.1),false,Color(150,200,150),"models/props_pipes/GutterMetal01a")),
         Holo(SubHolo(Vector(61.64,0,36),Angle(0),"models/hunter/blocks/cube05x05x05.mdl",Vector(0.7,3.11,0.05),false,Color(150,200,150),"models/props_pipes/GutterMetal01a")),
         Holo(SubHolo(Vector(-61.64,0,36),Angle(0),"models/hunter/blocks/cube05x05x05.mdl",Vector(0.7,3.11,0.05),false,Color(150,200,150),"models/props_pipes/GutterMetal01a")),
@@ -52,7 +72,7 @@ tableholos = {
         Holo(SubHolo(Vector(-45.15,61.64,36),Angle(90,180,90),"models/hunter/triangles/05x05x05.mdl",Vector(0.05,0.7,0.7),false,Color(150,200,150),"models/props_pipes/GutterMetal01a")),
         Holo(SubHolo(Vector(45.15,-61.64,36),Angle(90,0,90),"models/hunter/triangles/05x05x05.mdl",Vector(0.05,0.7,0.7),false,Color(150,200,150),"models/props_pipes/GutterMetal01a")),
         Holo(SubHolo(Vector(-45.15,-61.64,36),Angle(-90,0,90),"models/hunter/triangles/05x05x05.mdl",Vector(0.05,0.7,0.7),false,Color(150,200,150),"models/props_pipes/GutterMetal01a"))
-    ),
+    ),]]
     --[[hologram.createPart(
         Holo(SubHolo(Vector(0,0,37),Angle(0),))
     )]]
