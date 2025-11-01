@@ -82,22 +82,41 @@ else
             render.clear(Color(0, 0, 0, 0))
             render.setColor(Color(150, 200, 150))
 
+            render.drawFilledCircle(512, 512, 316)
             render.drawRect(0, 0, 460, 460)
             render.drawRect(564, 0, 460, 460)
             render.drawRect(0, 564, 460, 460)
             render.drawRect(564, 564, 460, 460)
-            render.drawRectOutline(0, 0, 1024, 1024, 256)
-            render.drawRect(312, 312, 400, 400)
+            render.drawRectOutline(0, 0, 1024, 1024, 130)
+            render.drawRect(512 - 310, 512 - 310, 620, 620)
 
             render.setMaterialEffectSub(green)
             render.drawTexturedRect(0, 0, 1024, 1024)
 
             render.setMaterial()
             render.setColor(Color())
-            render.drawRectOutline(612, 8, 100, 150, 2)
-            render.drawRectOutline(312, 8, 100, 150, 2)
-            render.drawRectOutline(720, 8, 100, 150, 2)
-            render.drawRectOutline(204, 8, 100, 150, 2)
+
+            render.drawRectOutline(712, 32, 100, 116, 2)
+            render.drawRectOutline(604, 32, 100, 116, 2)
+            render.drawRectOutline(712, 156, 100, 116, 2)
+            render.drawRectOutline(604, 156, 100, 116, 2)
+
+            render.drawRectOutline(212, 32, 100, 116, 2)
+            render.drawRectOutline(320, 32, 100, 116, 2)
+            render.drawRectOutline(212, 156, 100, 116, 2)
+            render.drawRectOutline(320, 156, 100, 116, 2)
+
+            render.drawRectOutline(32, 208, 116, 100, 2)
+            render.drawRectOutline(32, 316, 116, 100, 2)
+            render.drawRectOutline(156, 208, 116, 100, 2)
+            render.drawRectOutline(156, 316, 116, 100, 2)
+
+            render.drawRectOutline(1024 - 148, 208, 116, 100, 2)
+            render.drawRectOutline(1024 - 148, 316, 116, 100, 2)
+            render.drawRectOutline(1024 - 272, 208, 116, 100, 2)
+            render.drawRectOutline(1024 - 272, 316, 116, 100, 2)
+
+            render.drawCircle(512, 512, 300)
         end
         render.selectRenderTarget("uv")
         do
