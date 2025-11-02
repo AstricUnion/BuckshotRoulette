@@ -7,8 +7,8 @@ require("holos")
 if SERVER then
     local function tablePart(multiplier, clientId)
         local clipOffset = 35
-        local scale = Vector(6 * multiplier, 12, 12)
-        local position = Vector(36, 0, 0)
+        local scale = Vector(3 * multiplier, 6, 6)
+        local position = Vector(18, 0, 0)
         local holo = SubHolo(Vector(0, 0, 36) - position * multiplier, Angle(), "models/holograms/plane.mdl", scale, nil, nil, nil, clientId)
         holo:setCullMode(math.max(-multiplier, 0))
         return Holo(
@@ -64,7 +64,19 @@ if SERVER then
         )]]
     }
 else
+    function render.drawPolyOutline(vertices, thickness)
+        for i=1,#vertices do
+            local current = vertices[i]
+            local next = vertices[i + 1] or vertices[1]
+            for l=0, -thickness / 2, -0.5 do
+                render.drawLine(current.x + l, current.y + l, next.x + l, next.y + l)
+            end
+        end
+    end
+
     render.createRenderTarget("mat")
+    render.createRenderTarget("cells")
+    render.createRenderTarget("cellsPerPlayer")
     render.createRenderTarget("uv")
 
     local mat
@@ -76,53 +88,59 @@ else
     createMat()
 
     hook.add("RenderOffscreen", "", function()
+        render.selectRenderTarget("cells")
+        do
+            local null = {x = 408, y = 392}
+            local size = {x = 100, y = 132}
+            render.clear(Color(0, 0, 0, 0))
+            render.drawPolyOutline({
+                {x = null.x, y = null.y + 100},
+                {x = null.x, y = null.y + size.y},
+                {x = null.x + size.x, y = null.y + size.y},
+                {x = null.x + size.x, y = null.y},
+            }, 2)
+            render.drawRectOutline(null.x + size.x + 8, null.y, size.x, size.y, 2)
+            render.drawRectOutline(null.x, null.y + size.y + 8, size.x, size.y, 2)
+            render.drawRectOutline(null.x + size.x + 8, null.y + size.y + 8, size.x, size.y, 2)
+        end
+        render.selectRenderTarget("cellsPerPlayer")
+        do
+            render.clear(Color(0, 0, 0, 0))
+            render.setRenderTargetTexture("cells")
+            render.drawTexturedRectUV(-200, -330, 1024, 1024, 0, 0, 1, -1)
+            render.drawTexturedRectUV(200, -330, 1024, 1024, 0, 0, -1, -1)
+        end
         render.selectRenderTarget("mat")
         do
             local green = material.load("models/props_pipes/GutterMetal01a")
             render.clear(Color(0, 0, 0, 0))
             render.setColor(Color(150, 200, 150))
 
-            render.drawFilledCircle(512, 512, 316)
+            render.drawFilledCircle(512, 512, 332)
             render.drawRect(0, 0, 460, 460)
             render.drawRect(564, 0, 460, 460)
             render.drawRect(0, 564, 460, 460)
             render.drawRect(564, 564, 460, 460)
             render.drawRectOutline(0, 0, 1024, 1024, 130)
-            render.drawRect(512 - 310, 512 - 310, 620, 620)
 
             render.setMaterialEffectSub(green)
             render.drawTexturedRect(0, 0, 1024, 1024)
 
             render.setMaterial()
             render.setColor(Color())
-
-            render.drawRectOutline(712, 32, 100, 116, 2)
-            render.drawRectOutline(604, 32, 100, 116, 2)
-            render.drawRectOutline(712, 156, 100, 116, 2)
-            render.drawRectOutline(604, 156, 100, 116, 2)
-
-            render.drawRectOutline(212, 32, 100, 116, 2)
-            render.drawRectOutline(320, 32, 100, 116, 2)
-            render.drawRectOutline(212, 156, 100, 116, 2)
-            render.drawRectOutline(320, 156, 100, 116, 2)
-
-            render.drawRectOutline(32, 208, 116, 100, 2)
-            render.drawRectOutline(32, 316, 116, 100, 2)
-            render.drawRectOutline(156, 208, 116, 100, 2)
-            render.drawRectOutline(156, 316, 116, 100, 2)
-
-            render.drawRectOutline(1024 - 148, 208, 116, 100, 2)
-            render.drawRectOutline(1024 - 148, 316, 116, 100, 2)
-            render.drawRectOutline(1024 - 272, 208, 116, 100, 2)
-            render.drawRectOutline(1024 - 272, 316, 116, 100, 2)
-
-            render.drawCircle(512, 512, 300)
+            render.setRenderTargetTexture("cellsPerPlayer")
+            render.drawTexturedRectRotated(512, 512, 1024, 1024, 0)
+            render.drawTexturedRectRotated(512, 512, 1024, 1024, 90)
+            render.drawTexturedRectRotated(512, 512, 1024, 1024, -90)
+            render.drawCircle(512, 512, 316)
+            render.drawLine(0, 0, 1024, 1024)
+            render.drawLine(1024, 0, 0, 1024)
         end
         render.selectRenderTarget("uv")
         do
             render.clear(Color(0, 0, 0, 0))
             render.setRenderTargetTexture("mat")
-            render.drawTexturedRectUV(0, 0, 1024, 1024, 0, 0, 1, 0.5)
+            render.drawTexturedRectUV(0, 0, 1024, 1024, 0, 0, -1, 0.5)
         end
         render.selectRenderTarget()
         hook.remove("RenderOffscreen", "")
