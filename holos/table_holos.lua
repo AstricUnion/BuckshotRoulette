@@ -87,6 +87,9 @@ else
     end
     createMat()
 
+    hook.add("PlayerDisconnected", "", createMat)
+    hook.add("PlayerConnect", "", createMat)
+
     hook.add("RenderOffscreen", "", function()
         render.selectRenderTarget("cells")
         do
