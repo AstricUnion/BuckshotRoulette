@@ -6,7 +6,7 @@ require("holos")
 
 if SERVER then
     local function tablePart(multiplier, clientId)
-        local clipOffset = 35
+        local clipOffset = 18
         local scale = Vector(3 * multiplier, 6, 6)
         local position = Vector(18, 0, 0)
         local holo = SubHolo(Vector(0, 0, 36) - position * multiplier, Angle(), "models/holograms/plane.mdl", scale, nil, nil, nil, clientId)
