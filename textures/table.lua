@@ -1,8 +1,7 @@
 --@client
 
 --@include https://raw.githubusercontent.com/AstricUnion/Libs/refs/heads/main/cmaterial.lua as cmat
---@include astricunion/libs/cmaterial.lua
-require("astricunion/libs/cmaterial.lua")
+require("cmat")
 
 local function drawPolyOutline(vertices, thickness)
     for i=1,#vertices do
