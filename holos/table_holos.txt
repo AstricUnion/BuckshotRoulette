@@ -58,10 +58,22 @@ if SERVER then
             Holo(Rig(Vector(0,0,36))),
             tablePart(1, "right"),
             tablePart(-1, "left")
+        ),
+        hologram.createPart(
+            Holo(SubHolo(Vector(0,0,37),Angle(0),"models/hunter/tubes/tube2x2x025.mdl",Vector(0.4,0.4,0.2),false,Color(80,80,80),"models/props_canal/canal_bridge_railing_01c")),
+            Holo(SubHolo(Vector(0,0,37),Angle(0),"models/hunter/tubes/tube2x2x025.mdl",Vector(0.28,0.28,0.2),false,Color(80,80,80),"models/props_canal/canal_bridge_railing_01c")),
+            Holo(SubHolo(Vector(0,0,37),Angle(0),"models/hunter/tubes/tube2x2x025.mdl",Vector(0.24,0.24,0.2),false,Color(80,80,80),"models/props_canal/canal_bridge_railing_01c")),
+            Holo(SubHolo(Vector(0,0,37.7),Angle(0),"models/hunter/tubes/tube2x2x025.mdl",Vector(0.25,0.25,0.05),false,Color(80,80,80),"models/props_canal/canal_bridge_railing_01c")),
+            Holo(SubHolo(Vector(0,0,37.7),Angle(0),"models/hunter/tubes/tube2x2x025.mdl",Vector(0.26,0.26,0.05),false,Color(80,80,80),"models/props_canal/canal_bridge_railing_01c")),
+            Holo(SubHolo(Vector(0,0,37.7),Angle(0),"models/hunter/tubes/tube2x2x025.mdl",Vector(0.27,0.27,0.05),false,Color(80,80,80),"models/props_canal/canal_bridge_railing_01c")),
+            Holo(SubHolo(Vector(0,0,37.7),Angle(0),"models/holograms/cplane.mdl",Vector(3.15,3.15,1),false,Color(150,200,150),"models/props_pipes/GutterMetal01a"))
+        ),
+        hologram.createPart(
+            Holo(SubHolo(Vector(0,0,37),Angle(0),"models/Mechanics/gears2/gear_18t1.mdl",Vector(0.9,0.9,0.2),true,Color(211,255,117),"models/debug/debugwhite")),
+            Holo(SubHolo(Vector(0,0,37),Angle(0,5,0),"models/Mechanics/gears2/gear_18t1.mdl",Vector(0.9,0.9,0.2),true,Color(211,255,117),"models/debug/debugwhite")),
+            Holo(SubHolo(Vector(0,0,37),Angle(0,10,0),"models/Mechanics/gears2/gear_18t1.mdl",Vector(0.9,0.9,0.2),true,Color(211,255,117),"models/debug/debugwhite")),
+            Holo(SubHolo(Vector(0,0,37),Angle(0,15,0),"models/Mechanics/gears2/gear_18t1.mdl",Vector(0.9,0.9,0.2),true,Color(20,20,20),"models/debug/debugwhite"))
         )
-        --[[hologram.createPart(
-            Holo(SubHolo(Vector(0,0,37),Angle(0),))
-        )]]
     }
 else
     --@include buckshot/textures/table.lua
