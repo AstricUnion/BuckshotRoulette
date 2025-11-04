@@ -27,6 +27,9 @@ STATES = {
 
 
 if SERVER then
+    --@include https://raw.githubusercontent.com/AstricUnion/Libs/refs/heads/main/tweens.lua as tweens
+    require("tweens")
+
     local CHIPPOS = CHIP:getPos()
     -- Create game object
     local model = "models/nova/chair_wood01.mdl"
@@ -64,8 +67,13 @@ if SERVER then
     end)
 
 
-    hook.add("PlayerEnteredVehicle", "StartGame", function(_, seat)
-        if table.hasValue(seats, seat) then
+    hook.add("PlayerEnteredVehicle", "StartGame", function(ply, seat)
+        local index = table.keyFromValue(seats, seat)
+        if index then
+            timer.simple(0.1, function()
+                local camera = Table.cameras[index]
+                ply:setViewEntity(camera)
+            end)
             if !game:isStarted() then
                 game:start()
             end

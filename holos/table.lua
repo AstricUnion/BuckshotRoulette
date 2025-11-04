@@ -81,8 +81,14 @@ if SERVER then
         },
         shotgun = hologram.createPart(
             Holo(Rig(Vector(0, 0, 40))),
-            Holo(SubHolo(Vector(-3,0,40),Angle(-2.5,6,90),"models/weapons/w_annabelle.mdl"))
-        )
+            Holo(SubHolo(Vector(-3,0,40),Angle(2.5,-6,-90),"models/weapons/w_annabelle.mdl"))
+        ),
+        cameras = {
+            Rig(Vector(42, 0, 60), Angle(20, 180, 0)),
+            Rig(Vector(0, 42, 60), Angle(20, -90, 0)),
+            Rig(Vector(-42, 0, 60), Angle(20, 0, 0)),
+            Rig(Vector(0, -42, 60), Angle(20, 90, 0))
+        }
     }
 
     -- sex with holos
@@ -91,6 +97,9 @@ if SERVER then
     Table.shotgunStand:setParent(Table.main)
     for _, led in ipairs(Table.leds) do
         led:setParent(Table.main)
+    end
+    for _, camera in ipairs(Table.cameras) do
+        camera:setParent(Table.main)
     end
     Table.main:setPos(Table.main:getPos() - Vector(0, 0, 7))
     Table.main:setParent(chip())

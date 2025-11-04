@@ -109,7 +109,7 @@ if SERVER then
 
 
     ---Get players in participants
-    ---@return number count, table[Player] players
+    ---@return number count, table players
     function Game:getPlayers()
         -- Why two variables? Because optimization.
         -- Operator # iterates table again
