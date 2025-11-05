@@ -47,7 +47,7 @@ if SERVER then
     ---Initial data for every player
     local initialData = {
         items = {}, -- Maximum 8 items
-        health = 5, -- Player health, maximum 6
+        health = 6, -- Player health, maximum 6
         isJammed = false, -- Is player jammed by other player
         state = STATES.Idle -- State of player, yeah
     }
@@ -72,7 +72,10 @@ if SERVER then
         if index then
             timer.simple(0.1, function()
                 local camera = Table.cameras[index]
-                ply:setViewEntity(camera)
+                if !camera then return end
+                net.start("InitializeCamera")
+                net.writeEntity(camera)
+                net.send(ply)
             end)
             if !game:isStarted() then
                 game:start()
@@ -109,5 +112,33 @@ if SERVER then
                 printHud(nextPly, "Your turn!")
             end
         end
+    end)
+else
+    --@include buckshot/libs/camera.lua
+    require("buckshot/libs/camera.lua")
+
+    ---Data are relative to seat
+    CAMERAS = {
+        ATTABLE = {POS = Vector(0, 12, 55), ANG = Angle(50, 90, 0), FOV = 90},
+        ATGAME = {POS = Vector(0, 10, 60), ANG = Angle(10, 90, 0), FOV = 90}
+    }
+    PLAYER = player()
+
+    ---Seat
+    local seat = nil
+
+    net.receive("InitializeCamera", function()
+        local lastCam = camera.get()
+        seat = PLAYER:getVehicle()
+        if lastCam then lastCam:remove() end
+        local cameraPos = CAMERAS.ATTABLE
+        local cam = camera.create(seat:localToWorld(cameraPos.POS), seat:localToWorldAngles(cameraPos.ANG), cameraPos.FOV, 0.2, true)
+        if !cam then return end
+        camera.set(cam)
+        timer.simple(1, function()
+            cameraPos = CAMERAS.ATGAME
+            cam:setTargetAngles(seat:localToWorldAngles(cameraPos.ANG))
+            cam:setTargetPos(seat:localToWorld(cameraPos.POS))
+        end)
     end)
 end

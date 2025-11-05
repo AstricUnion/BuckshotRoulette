@@ -5,6 +5,19 @@
 require("holos")
 
 if SERVER then
+    -- TODO: сделать под каждого игрока по одному ящику. можешь холку закинуть сюды:
+    local function itemBox(pos, ang)
+        return {
+            box = hologram.createPart(
+                Holo(Rig(pos, ang))
+            ),
+            boxLid = hologram.createPart(
+                Holo(Rig(pos, ang))
+            )
+        }
+    end
+
+    ---Create table surface
     local function tablePart(multiplier, clientId)
         local clipOffset = 18
         local scale = Vector(3 * multiplier, 6, 6)
@@ -22,6 +35,8 @@ if SERVER then
         )
     end
 
+    ---Create led surface
+    ---TODO: replace it with custom texture
     local function led(angle)
         return SubHolo(Vector(0,0,37),Angle(0,angle),"models/Mechanics/gears2/gear_18t1.mdl",Vector(0.8865,0.8865,0.12),true,Color(190,200,100),"models/debug/debugwhite")
     end
@@ -80,14 +95,14 @@ if SERVER then
             led(15)
         },
         shotgun = hologram.createPart(
-            Holo(Rig(Vector(0, 0, 40))),
-            Holo(SubHolo(Vector(-3,0,40),Angle(2.5,-6,-90),"models/weapons/w_annabelle.mdl"))
+            Holo(Rig(Vector(0, 0, 38))),
+            Holo(SubHolo(Vector(-3,0,38),Angle(2.5,-6,-90),"models/weapons/w_annabelle.mdl"))
         ),
         cameras = {
-            Rig(Vector(42, 0, 60), Angle(20, 180, 0)),
-            Rig(Vector(0, 42, 60), Angle(20, -90, 0)),
-            Rig(Vector(-42, 0, 60), Angle(20, 0, 0)),
-            Rig(Vector(0, -42, 60), Angle(20, 90, 0))
+            Rig(Vector(44, 0, 62), Angle(0, 180, 0)),
+            Rig(Vector(0, 44, 62), Angle(0, -90, 0)),
+            Rig(Vector(-44, 0, 62), Angle(0, 0, 0)),
+            Rig(Vector(0, -44, 62), Angle(0, 90, 0))
         }
     }
 
