@@ -43,12 +43,14 @@ local function generate(name)
         render.clear(Color(0, 0, 0, 0))
         render.setColor(Color(150, 200, 150))
 
-        render.drawFilledCircle(512, 512, 332)
-        render.drawRect(0, 0, 460, 460)
-        render.drawRect(564, 0, 460, 460)
-        render.drawRect(0, 564, 460, 460)
-        render.drawRect(564, 564, 460, 460)
-        render.drawRectOutline(0, 0, 1024, 1024, 130)
+        render.drawFilledCircle(512, 512, 330)
+        local width = 440
+        local center = 512 + (512 - width)
+        render.drawRect(0, 0, width, width)
+        render.drawRect(center, 0, width, width)
+        render.drawRect(0, center, width, width)
+        render.drawRect(center, center, width, width)
+        render.drawRectOutline(0, 0, 1024, 1024, 110)
 
         render.setMaterialEffectSub(green)
         render.drawTexturedRect(0, 0, 1024, 1024)
@@ -60,6 +62,10 @@ local function generate(name)
         render.drawTexturedRectRotated(512, 512, 1024, 1024, 90)
         render.drawTexturedRectRotated(512, 512, 1024, 1024, -90)
         render.drawCircle(512, 512, 316)
+        center = 176 / 2
+        render.drawRectOutline(512 - center, 30, 176, 200, 2)
+        render.drawRectOutline(30, 512 - center, 200, 176, 2)
+        render.drawRectOutline(994 - 200, 512 - center, 200, 176, 2)
         render.drawLine(0, 0, 1024, 1024)
         render.drawLine(1024, 0, 0, 1024)
     end
@@ -69,6 +75,9 @@ local function generate(name)
         render.setRenderTargetTexture("mat")
         render.drawTexturedRectUV(0, 0, 1024, 1024, 0, 0, -1, 0.5)
     end
+    render.destroyRenderTarget("cells")
+    render.destroyRenderTarget("cellsPerPlayer")
+    render.destroyRenderTarget("mat")
     render.selectRenderTarget()
     return true
 end

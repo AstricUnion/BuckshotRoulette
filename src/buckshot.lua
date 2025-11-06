@@ -3,7 +3,8 @@
 --@shared
 --@include buckshot/libs/turns.lua
 --@include buckshot/holos/table.lua
-
+--@include https://raw.githubusercontent.com/AstricUnion/Libs/refs/heads/main/tweens.lua as tweens
+require("tweens")
 require("buckshot/libs/turns.lua")
 require("buckshot/holos/table.lua")
 
@@ -15,20 +16,22 @@ STATES = {
     Death = -1,
     ---Player do nothing
     Idle = 0,
+    ---Player unpacking box
+    Box = 1,
     ---Player got shotgun in hands
-    WithShotgun = 1,
+    WithShotgun = 2,
     ---Player shoots other player or himself 
-    Shoot = 2,
+    Shoot = 3,
     ---Player using adrenaline
-    Adrenaline = 3,
+    Adrenaline = 4,
     ---Player using jammer
-    Jammer = 4,
+    Jammer = 5,
 }
 
 
 if SERVER then
-    --@include https://raw.githubusercontent.com/AstricUnion/Libs/refs/heads/main/tweens.lua as tweens
-    require("tweens")
+    --@include buckshot/holos/animations.lua
+    require("buckshot/holos/animations.lua")
 
     local CHIPPOS = CHIP:getPos()
     -- Create game object
@@ -67,30 +70,30 @@ if SERVER then
     end)
 
 
-    hook.add("PlayerEnteredVehicle", "StartGame", function(ply, seat)
+    hook.add("PlayerEnteredVehicle", "StartGame", function(_, seat)
         local index = table.keyFromValue(seats, seat)
         if index then
-            timer.simple(0.1, function()
-                local camera = Table.cameras[index]
-                if !camera then return end
-                net.start("InitializeCamera")
-                net.writeEntity(camera)
-                net.send(ply)
-            end)
             if !game:isStarted() then
                 game:start()
             end
         end
     end)
 
-    hook.add("PlayerLeaveVehicle", "StopGame", function(_, seat)
+    hook.add("PlayerLeaveVehicle", "StopGame", function(ply, seat)
         if table.hasValue(seats, seat) then
+            net.start("RemoveCamera")
+            net.send(ply)
             local turn = game:getTurn()
             if game:isStarted() and turn.seat == seat then
                 local next = game:next()
                 if !next then game:stop() return end
             end
         end
+    end)
+
+    hook.add("GameStarted", "RouletteStarted", function(_, _, players)
+        net.start("GameStarted")
+        net.send(players)
     end)
 
     hook.add("KeyPress", "", function(ply, key)
@@ -113,32 +116,59 @@ if SERVER then
             end
         end
     end)
+
+    net.receive("Box", function()
+        local seat = net.readEntity()
+        local key = table.keyFromValue(seats, seat)
+        animations.getBox(Table.boxes[key].box)
+    end)
 else
     --@include buckshot/libs/camera.lua
     require("buckshot/libs/camera.lua")
 
     ---Data are relative to seat
     CAMERAS = {
+        BOX = {POS = Vector(0, 14, 52), ANG = Angle(55, 90, 0), FOV = 90},
         ATTABLE = {POS = Vector(0, 12, 55), ANG = Angle(50, 90, 0), FOV = 90},
+        ATSCREEN = {POS = Vector(0, 20, 40), ANG = Angle(60, 90, 0), FOV = 90},
         ATGAME = {POS = Vector(0, 10, 60), ANG = Angle(10, 90, 0), FOV = 90}
     }
     PLAYER = player()
 
+    local function getLocalToSeat(seat, pos)
+        return {POS = seat:localToWorld(pos.POS), ANG = seat:localToWorldAngles(pos.ANG), FOV = pos.FOV}
+    end
+
     ---Seat
     local seat = nil
 
-    net.receive("InitializeCamera", function()
+
+    net.receive("RemoveCamera", function()
         local lastCam = camera.get()
-        seat = PLAYER:getVehicle()
         if lastCam then lastCam:remove() end
-        local cameraPos = CAMERAS.ATTABLE
-        local cam = camera.create(seat:localToWorld(cameraPos.POS), seat:localToWorldAngles(cameraPos.ANG), cameraPos.FOV, 0.2, true)
+    end)
+
+
+    net.receive("GameStarted", function()
+        seat = PLAYER:getVehicle()
+        local atGame = getLocalToSeat(seat, CAMERAS.ATGAME)
+        cam = camera.create(atGame.POS, atGame.ANG, atGame.FOV, 0.15, true)
         if !cam then return end
         camera.set(cam)
-        timer.simple(1, function()
-            cameraPos = CAMERAS.ATGAME
-            cam:setTargetAngles(seat:localToWorldAngles(cameraPos.ANG))
-            cam:setTargetPos(seat:localToWorld(cameraPos.POS))
+        local tw = Tween:new()
+        tw:sleep(1, function()
+            local cameraPos = getLocalToSeat(seat, CAMERAS.ATSCREEN)
+            cam:setTargetAngles(cameraPos.ANG)
+            cam:setTargetPos(cameraPos.POS)
         end)
+        tw:sleep(3, function()
+            local cameraPos = getLocalToSeat(seat, CAMERAS.BOX)
+            cam:setTargetAngles(cameraPos.ANG)
+            cam:setTargetPos(cameraPos.POS)
+            net.start("Box")
+            net.writeEntity(seat)
+            net.send()
+        end)
+        tw:start()
     end)
 end

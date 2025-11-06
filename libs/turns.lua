@@ -153,9 +153,7 @@ if SERVER then
         local randomValue, _ = table.random(activeParticipants)
         self.turn = table.keyFromValue(self.participants, randomValue)
         timer.simple(0.1, function()
-            for _, ply in ipairs(participantsPlayers) do
-                printHud(ply, "Game started")
-            end
+            hook.run("GameStarted", activeParticipants, participantsCount, participantsPlayers)
         end)
         self.started = true
         return true

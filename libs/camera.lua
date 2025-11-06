@@ -62,6 +62,7 @@ end
 ---Remove camera
 function Camera:remove()
     self.pinPoint:remove()
+    if activeCamera == self then camera.set(nil) end
     setmetatable(self, nil)
 end
 
