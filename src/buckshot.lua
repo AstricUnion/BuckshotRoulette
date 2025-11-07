@@ -126,6 +126,9 @@ else
     --@include buckshot/libs/camera.lua
     require("buckshot/libs/camera.lua")
 
+    --@include astricunion/libs/ui.lua
+    require("astricunion/libs/ui.lua")
+
     ---Data are relative to seat
     CAMERAS = {
         BOX = {POS = Vector(0, 14, 52), ANG = Angle(55, 90, 0), FOV = 90},
@@ -141,7 +144,22 @@ else
 
     ---Seat
     local seat = nil
+    local state = STATES.Idle
 
+
+    local sw, sh
+    local boxButton
+
+    hook.add("DrawHUD", "Mouse", function(key)
+        local x, y = input.getCursorPos()
+        if !(sw and sh) then sw, sh = render.getGameResolution() end
+        if boxButton then
+            boxButton:draw()
+        end
+        if key == MOUSE.LEFT and state == STATES.Box then
+            print("достал какую-то херню")
+        end
+    end)
 
     net.receive("RemoveCamera", function()
         local lastCam = camera.get()
@@ -168,6 +186,14 @@ else
             net.start("Box")
             net.writeEntity(seat)
             net.send()
+        end)
+        tw:sleep(1, function()
+            state = STATES.Box
+            input.enableCursor(true)
+            boxButton = Button:new(sw * 0.35, sh * 0.4, sw * 0.3, sh * 0.45)
+            boxButton:setCallback(function()
+                print("достал какую-то хрень")
+            end)
         end)
         tw:start()
     end)
