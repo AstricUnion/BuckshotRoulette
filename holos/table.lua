@@ -9,14 +9,51 @@ if SERVER then
     local function itemBox(pos, ang)
         local holos = {
             box = hologram.createPart(
-                Holo(Rig(pos, ang)),
-                Holo(SubHolo(pos, ang, "models/holograms/cube.mdl", Vector(0.8, 0.9, 0.5)))
+                Holo(Rig(Vector(),Angle())),
+                Holo(SubHolo(Vector(),Angle(),"models/holograms/cube.mdl",Vector(0.6,0.8,0.05),false,nil,"phoenix_storms/concrete1")),
+                Holo(SubHolo(Vector(-3.313,0,2),Angle(90,0,0),"models/holograms/cube.mdl",Vector(0.3,0.8,0.05),false,nil,"phoenix_storms/concrete1")),
+                Holo(SubHolo(Vector(3.313,0,2),Angle(90,0,0),"models/holograms/cube.mdl",Vector(0.3,0.8,0.05),false,nil,"phoenix_storms/concrete1")),
+                Holo(SubHolo(Vector(0,4.52,2),Angle(90,90,0),"models/holograms/cube.mdl",Vector(0.3,0.505,0.05),false,nil,"phoenix_storms/concrete1")),
+                Holo(SubHolo(Vector(0,-4.52,2),Angle(90,90,0),"models/holograms/cube.mdl",Vector(0.3,0.505,0.05),false,nil,"phoenix_storms/concrete1")),
+                Holo(SubHolo(Vector(-3.413,0,3.6),Angle(90,0,0),"models/holograms/cube.mdl",Vector(0.05,0.815,0.05),false,nil,"phoenix_storms/pro_gear_top2")),
+                Holo(SubHolo(Vector(3.413,0,3.6),Angle(90,0,0),"models/holograms/cube.mdl",Vector(0.05,0.815,0.05),false,nil,"phoenix_storms/pro_gear_top2")),
+                Holo(SubHolo(Vector(-3.413,0,-0.1),Angle(90,0,0),"models/holograms/cube.mdl",Vector(0.05,0.815,0.05),false,nil,"phoenix_storms/pro_gear_top2")),
+                Holo(SubHolo(Vector(3.413,0,-0.1),Angle(90,0,0),"models/holograms/cube.mdl",Vector(0.05,0.815,0.05),false,nil,"phoenix_storms/pro_gear_top2")),
+                Holo(SubHolo(Vector(0,4.62,3.6),Angle(90,90,0),"models/holograms/cube.mdl",Vector(0.05,0.52,0.05),false,nil,"phoenix_storms/pro_gear_top2")),
+                Holo(SubHolo(Vector(0,-4.62,3.6),Angle(90,90,0),"models/holograms/cube.mdl",Vector(0.05,0.52,0.05),false,nil,"phoenix_storms/pro_gear_top2")),
+                Holo(SubHolo(Vector(0,4.62,-0.1),Angle(90,90,0),"models/holograms/cube.mdl",Vector(0.05,0.52,0.05),false,nil,"phoenix_storms/pro_gear_top2")),
+                Holo(SubHolo(Vector(0,-4.62,-0.1),Angle(90,90,0),"models/holograms/cube.mdl",Vector(0.05,0.52,0.05),false,nil,"phoenix_storms/pro_gear_top2")),
+                Holo(SubHolo(Vector(3.43,-4.62,2),Angle(0,90,90),"models/holograms/cube.mdl",Vector(0.05,0.3,0.05),false,nil,"phoenix_storms/pro_gear_top2")),
+                Holo(SubHolo(Vector(-3.43,-4.62,2),Angle(0,90,90),"models/holograms/cube.mdl",Vector(0.05,0.3,0.05),false,nil,"phoenix_storms/pro_gear_top2")),
+                Holo(SubHolo(Vector(3.43,4.62,2),Angle(0,90,90),"models/holograms/cube.mdl",Vector(0.05,0.3,0.05),false,nil,"phoenix_storms/pro_gear_top2")),
+                Holo(SubHolo(Vector(-3.43,4.62,2),Angle(0,90,90),"models/holograms/cube.mdl",Vector(0.05,0.3,0.05),false,nil,"phoenix_storms/pro_gear_top2"))
             ),
             boxLid = hologram.createPart(
-                Holo(Rig(pos, ang))
+                Holo(Rig(Vector(-3.75,0,3.92),Angle())),
+                Holo(SubHolo(Vector(-7.5,0,2),Angle(),"models/holograms/cube.mdl",Vector(0.6,0.8,0.05),false,nil,"phoenix_storms/concrete1")),
+                Holo(SubHolo(Vector(-4.18,0,2.9),Angle(90,0,0),"models/holograms/cube.mdl",Vector(0.15,0.8,0.05),false,nil,"phoenix_storms/concrete1")),
+                Holo(SubHolo(Vector(-10.794,0,2.9),Angle(90,0,0),"models/holograms/cube.mdl",Vector(0.15,0.8,0.05),false,nil,"phoenix_storms/concrete1")),
+                Holo(SubHolo(Vector(-7.5,4.52,2.9),Angle(90,90,0),"models/holograms/cube.mdl",Vector(0.15,0.51,0.05),false,nil,"phoenix_storms/concrete1")),
+                Holo(SubHolo(Vector(-7.5,-4.52,2.9),Angle(90,90,0),"models/holograms/cube.mdl",Vector(0.15,0.51,0.05),false,nil,"phoenix_storms/concrete1")),
+                Holo(SubHolo(Vector(-10.913,0,3.6),Angle(90,0,0),"models/holograms/cube.mdl",Vector(0.05,0.815,0.05),false,nil,"phoenix_storms/pro_gear_top2")),
+                Holo(SubHolo(Vector(-4.087,0,3.6),Angle(90,0,0),"models/holograms/cube.mdl",Vector(0.05,0.815,0.05),false,nil,"phoenix_storms/pro_gear_top2")),
+                Holo(SubHolo(Vector(-10.913,0,1.9),Angle(90,0,0),"models/holograms/cube.mdl",Vector(0.05,0.815,0.05),false,nil,"phoenix_storms/pro_gear_top2")),
+                Holo(SubHolo(Vector(-4.087,0,1.9),Angle(90,0,0),"models/holograms/cube.mdl",Vector(0.05,0.815,0.05),false,nil,"phoenix_storms/pro_gear_top2")),
+                Holo(SubHolo(Vector(-7.5,4.62,3.6),Angle(90,90,0),"models/holograms/cube.mdl",Vector(0.05,0.54,0.05),false,nil,"phoenix_storms/pro_gear_top2")),
+                Holo(SubHolo(Vector(-7.5,-4.62,3.6),Angle(90,90,0),"models/holograms/cube.mdl",Vector(0.05,0.54,0.05),false,nil,"phoenix_storms/pro_gear_top2")),
+                Holo(SubHolo(Vector(-7.5,4.62,1.9),Angle(90,90,0),"models/holograms/cube.mdl",Vector(0.05,0.54,0.05),false,nil,"phoenix_storms/pro_gear_top2")),
+                Holo(SubHolo(Vector(-7.5,-4.62,1.9),Angle(90,90,0),"models/holograms/cube.mdl",Vector(0.05,0.54,0.05),false,nil,"phoenix_storms/pro_gear_top2")),
+                Holo(SubHolo(Vector(-4.09,-4.62,3),Angle(0,90,90),"models/holograms/cube.mdl",Vector(0.05,0.15,0.05),false,nil,"phoenix_storms/pro_gear_top2")),
+                Holo(SubHolo(Vector(-10.93,-4.62,3),Angle(0,90,90),"models/holograms/cube.mdl",Vector(0.05,0.15,0.05),false,nil,"phoenix_storms/pro_gear_top2")),
+                Holo(SubHolo(Vector(-4.09,4.62,3),Angle(0,90,90),"models/holograms/cube.mdl",Vector(0.05,0.15,0.05),false,nil,"phoenix_storms/pro_gear_top2")),
+                Holo(SubHolo(Vector(-10.93,4.62,3),Angle(0,90,90),"models/holograms/cube.mdl",Vector(0.05,0.15,0.05),false,nil,"phoenix_storms/pro_gear_top2")),
+                Holo(SubHolo(Vector(-3.7,-2.5,3.9),Angle(90,90,0),"models/holograms/hq_cylinder.mdl",Vector(0.085,0.085,0.15),false,nil,"phoenix_storms/pro_gear_top2")),
+                Holo(SubHolo(Vector(-3.7,2.5,3.9),Angle(90,90,0),"models/holograms/hq_cylinder.mdl",Vector(0.085,0.085,0.15),false,nil,"phoenix_storms/pro_gear_top2"))
             )
         }
         holos.boxLid:setParent(holos.box)
+        holos.box:setAngles(ang)
+        holos.box:setPos(holos.box:getPos() + pos)
         return holos
     end
     -- itemBox(Vector(29, 0, 32), Angle())
@@ -103,7 +140,7 @@ if SERVER then
             Holo(SubHolo(Vector(-3,0,38),Angle(2.5,-6,-90),"models/weapons/w_annabelle.mdl"))
         ),
         boxes = {
-            itemBox(Vector(29, 0, 30), nil),
+            itemBox(Vector(29, 0, 30), Angle()),
             itemBox(Vector(0, 29, 30), Angle(0, 90, 0)),
             itemBox(Vector(-29, 0, 30), Angle(0, 180, 0)),
             itemBox(Vector(0, -29, 30), Angle(0, -90, 0))
