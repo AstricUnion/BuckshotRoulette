@@ -53,8 +53,8 @@ end
 
 
 -- чтобы тестить, херачь:
-POS = chip():getPos() + Vector(0, 0, 50)
-items.Beer(POS, Angle())
+-- POS = chip():getPos() + Vector(0, 0, 50)
+-- items.Beer(POS, Angle())
 
 -- прочитал? сожги эти записи
 

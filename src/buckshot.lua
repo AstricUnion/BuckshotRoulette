@@ -29,22 +29,39 @@ STATES = {
 }
 
 
+local CHIPPOS = CHIP:getPos()
+local dist = 50
+
+---@enum POSITION
+POSITION = {
+    CHIPPOS + Vector(dist, 0, 0),
+    CHIPPOS + Vector(0, dist, 0),
+    CHIPPOS + Vector(-dist, 0, 0),
+    CHIPPOS + Vector(0, -dist, 0),
+}
+---@enum ANGLES
+ANGLES = {
+    Angle(0, 0, 0),
+    Angle(0, 90, 0),
+    Angle(0, 180, 0),
+    Angle(0, -90, 0)
+}
+
+
 if SERVER then
+    --@include buckshot/holos/items.lua
     --@include buckshot/holos/animations.lua
+    require("buckshot/holos/items.lua")
     require("buckshot/holos/animations.lua")
 
-    local CHIPPOS = CHIP:getPos()
+
     -- Create game object
     local model = "models/nova/chair_wood01.mdl"
-    local dist = 50
-    local seats = {
-        prop.createSeat(CHIPPOS + Vector(dist, 0, 0), Angle(0, 90, 0), model, true),
-        prop.createSeat(CHIPPOS + Vector(0, dist, 0), Angle(0, 180, 0), model, true),
-        prop.createSeat(CHIPPOS + Vector(-dist, 0, 0), Angle(0, -90, 0), model, true),
-        prop.createSeat(CHIPPOS + Vector(0, -dist, 0), Angle(0, 0, 0), model, true)
-    }
-    for _, seat in ipairs(seats) do
+    local seats = {}
+    for i=1,4 do
+        local seat = prop.createSeat(POSITION[i], ANGLES[i] + Angle(0, 90, 0), model, true)
         seat:setParent(CHIP)
+        seats[i] = seat
     end
 
     ---Initial data for every player
@@ -79,6 +96,7 @@ if SERVER then
         end
     end)
 
+
     hook.add("PlayerLeaveVehicle", "StopGame", function(ply, seat)
         if table.hasValue(seats, seat) then
             net.start("RemoveCamera")
@@ -91,36 +109,32 @@ if SERVER then
         end
     end)
 
+
     hook.add("GameStarted", "RouletteStarted", function(_, _, players)
         net.start("GameStarted")
         net.send(players)
     end)
 
-    hook.add("KeyPress", "", function(ply, key)
-        if game:isStarted() then
-            local turn = game:getTurn()
-            local turnPly = turn:getPlayer()
-            if key == IN_KEY.ATTACK and turn and ply == turnPly then
-                local rn = math.random(0, 5)
-                if rn ~= 1 then
-                    printHud(turnPly, "You're clicked! Next turn")
-                else
-                    printHud(turnPly, "How unfortunatenaly!")
-                    turn.seat:ejectDriver()
-                    turn.seat:lock()
-                end
-                local next = game:next()
-                if !next then game:stop() return end
-                local nextPly = next:getPlayer()
-                printHud(nextPly, "Your turn!")
-            end
-        end
-    end)
 
     net.receive("Box", function()
         local seat = net.readEntity()
         local key = table.keyFromValue(seats, seat)
         animations.getBox(Table.boxes[key].box)
+    end)
+
+    net.receive("GotItem", function()
+        local seat = net.readEntity()
+        local key = table.keyFromValue(seats, seat)
+        local box = Table.boxes[key].box
+        local pos = box:getPos()
+        local ang = box:getAngles()
+        local beer = items.Beer(pos, ang + Angle(0, 0, 90))
+        local tw = Tween:new()
+        tw:add(
+            Param:new(0.1, beer, PROPERTY.POS, pos + Vector(0, 0, 7), math.easeInSine),
+            Param:new(0.1, beer, PROPERTY.ANGLES, ang + Angle(-20, 0, 20), math.easeInSine)
+        )
+        tw:start()
     end)
 else
     --@include buckshot/libs/camera.lua
@@ -149,15 +163,17 @@ else
 
     local sw, sh
     local boxButton
+    local slotsButtons
 
-    hook.add("DrawHUD", "Mouse", function(key)
-        local x, y = input.getCursorPos()
+    hook.add("DrawHUD", "Mouse", function()
         if !(sw and sh) then sw, sh = render.getGameResolution() end
         if boxButton then
+            render.setColor(Color(0, 0, 0, 0))
             boxButton:draw()
-        end
-        if key == MOUSE.LEFT and state == STATES.Box then
-            print("достал какую-то херню")
+            render.setColor(Color())
+            for _, v in ipairs(slotsButtons) do
+                v:draw()
+            end
         end
     end)
 
@@ -183,16 +199,24 @@ else
             local cameraPos = getLocalToSeat(seat, CAMERAS.BOX)
             cam:setTargetAngles(cameraPos.ANG)
             cam:setTargetPos(cameraPos.POS)
+            state = STATES.Box
             net.start("Box")
             net.writeEntity(seat)
             net.send()
         end)
         tw:sleep(1, function()
-            state = STATES.Box
             input.enableCursor(true)
-            boxButton = Button:new(sw * 0.35, sh * 0.4, sw * 0.3, sh * 0.45)
+            boxButton = Button:new(sw * 0.4, sh * 0.6, sw * 0.2, sh * 0.3)
+            slotsButtons = {
+                Button:new(sw * 0.16, sh * 0.4, sw * 0.1, sh * 0.2),
+                Button:new(sw * 0.13, sh * 0.65, sw * 0.1, sh * 0.2),
+                Button:new(sw * 0.3, sh * 0.4, sw * 0.1, sh * 0.2),
+                Button:new(sw * 0.25, sh * 0.65, sw * 0.1, sh * 0.2),
+            }
             boxButton:setCallback(function()
-                print("достал какую-то хрень")
+                net.start("GotItem")
+                net.writeEntity(seat)
+                net.send()
             end)
         end)
         tw:start()

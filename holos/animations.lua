@@ -8,15 +8,15 @@ function animations.getBox(box)
     local tw = Tween:new()
     local position = box:getPos()
     local angles = box:getLocalAngles()
-    box:setLocalAngles(angles + Angle(90, 90, 0))
+    box:setLocalAngles(angles + Angle(90, -90, 0))
     tw:add(
         Param:new(0.25, box, PROPERTY.POS, position + Vector(12, 0, 0):getRotated(angles), math.easeInCubic)
     )
     tw:add(
-        Param:new(0.25, box, PROPERTY.POS, position + Vector(12, 0, 16):getRotated(angles), math.easeInOutCubic)
+        Param:new(0.25, box, PROPERTY.POS, position + Vector(12, 0, 14):getRotated(angles), math.easeInOutCubic)
     )
     tw:add(
-        Param:new(0.25, box, PROPERTY.POS, position + Vector(0, 0, 9):getRotated(angles), math.easeInOutCubic),
+        Param:new(0.25, box, PROPERTY.POS, position + Vector(0, 0, 6):getRotated(angles), math.easeInOutCubic),
         Param:new(0.25, box, PROPERTY.LOCALANGLES, angles, math.easeInOutCubic)
     )
     tw:start()
