@@ -55,6 +55,65 @@ if SERVER then
     require("buckshot/holos/animations.lua")
 
 
+    -- Items logic
+    -- Slots positions (by IDs, for player):
+    -- 1 3   7 5
+    -- 2 4   8 6
+    local TABLEHEIGHT = 32.5
+    local ITEMSLOTS = {
+        Vector(-29, -18, TABLEHEIGHT),
+        Vector(-22, -17, TABLEHEIGHT),
+        Vector(-29, -9, TABLEHEIGHT),
+        Vector(-21, -10, TABLEHEIGHT),
+        Vector(-29, 17.5, TABLEHEIGHT),
+        Vector(-20, 18, TABLEHEIGHT),
+        Vector(-29, 10, TABLEHEIGHT),
+        Vector(-22, 10, TABLEHEIGHT)
+    }
+
+    -- beer beer and again beer
+    --[[
+    for i=1,#POSITION do
+        local pos = POSITION[i]
+        local ang = ANGLES[i]
+        for _, slot in ipairs(ITEMSLOTS) do
+            items.Beer(pos + slot:getRotated(ang), Angle())
+        end
+    end
+    ]]
+
+    ---@enum ITEM
+    local ITEM = {
+        HandSaw = 1,
+        MagnifyingGlass = 2,
+        Jammer = 3,
+        CigarettePack = 4,
+        Beer = 5,
+        BurnerPhone = 6,
+        Adrenaline = 7,
+        Inverter = 8
+    }
+
+    ---@class Item
+    ---@field type ITEM
+    ---@field ent Hologram
+    local Item = {}
+    Item.__index = Item
+
+    ---Item data
+    ---@param type ITEM
+    ---@param ent Hologram
+    ---@return Item
+    function Item:new(type, ent)
+        return setmetatable(
+            {
+                type = type,
+                ent = ent
+            },
+            Item
+        )
+    end
+
     -- Create game object
     local model = "models/nova/chair_wood01.mdl"
     local seats = {}
@@ -69,6 +128,7 @@ if SERVER then
         items = {}, -- Maximum 8 items
         health = 6, -- Player health, maximum 6
         isJammed = false, -- Is player jammed by other player
+        itemInHand = nil, -- Item in hand, can be an item from box or from table
         state = STATES.Idle -- State of player, yeah
     }
     local game = Game:new(seats, initialData, 1)
@@ -116,25 +176,73 @@ if SERVER then
     end)
 
 
-    net.receive("Box", function()
-        local seat = net.readEntity()
+    net.receive("Box", function(_, ply)
+        local part = game:getParticipant(ply)
+        if !part then return end
+        part:updateData({state = STATES.Box})
+        local seat = part.seat
         local key = table.keyFromValue(seats, seat)
         animations.getBox(Table.boxes[key].box)
     end)
 
-    net.receive("GotItem", function()
-        local seat = net.readEntity()
+    net.receive("GotItem", function(_, ply)
+        local part = game:getParticipant(ply)
+        if !part then return end
+        local data = part:getData()
+        if data.state ~= STATES.Box then return end
+        if data.itemInHand then return end
+        local seat = part.seat
         local key = table.keyFromValue(seats, seat)
         local box = Table.boxes[key].box
         local pos = box:getPos()
         local ang = box:getAngles()
         local beer = items.Beer(pos, ang + Angle(0, 0, 90))
+        if !beer then return end
         local tw = Tween:new()
         tw:add(
-            Param:new(0.1, beer, PROPERTY.POS, pos + Vector(0, 0, 7), math.easeInSine),
-            Param:new(0.1, beer, PROPERTY.ANGLES, ang + Angle(-20, 0, 20), math.easeInSine)
+            Param:new(0.1, beer, PROPERTY.POS, pos + Vector(0, 0, 7), math.easeOutSine),
+            Param:new(0.1, beer, PROPERTY.ANGLES, ang + Angle(-20, 0, 20), math.easeOutSine, function()
+                part:updateData({itemInHand = Item:new(ITEM.Beer, beer)})
+            end)
         )
         tw:start()
+    end)
+
+    net.receive("PutItem", function(_, ply)
+        local part = game:getParticipant(ply)
+        if !part then return end
+        local data = part:getData()
+        if data.state ~= STATES.Box then return end
+        if !data.itemInHand then return end
+        local id = net.readInt(5)
+        if data.items[id] then return end
+        local seat = part.seat
+        local key = table.keyFromValue(seats, seat)
+        local ang = ANGLES[key]
+        local pos = POSITION[key] + ITEMSLOTS[id]:getRotated(ang)
+        local tw = Tween:new()
+        tw:add(
+            Param:new(0.1, data.itemInHand.ent, PROPERTY.POS, pos, math.easeOutSine),
+            Param:new(0.1, data.itemInHand.ent, PROPERTY.ANGLES, ang, math.easeOutSine)
+        )
+        tw:start()
+        data.items[id] = data.itemInHand
+        data.itemInHand = nil
+        part:setData(data)
+        local length = 0
+        for _, v in ipairs(data.items) do
+            if v then
+                length = length + 1
+            end
+        end
+        if length >= 8 then
+            local seat = part.seat
+            local key = table.keyFromValue(seats, seat)
+            animations.removeBox(Table.boxes[key].box)
+            net.start("BoxRemoved")
+            net.send(ply)
+            return
+        end
     end)
 else
     --@include buckshot/libs/camera.lua
@@ -158,6 +266,8 @@ else
 
     ---Seat
     local seat = nil
+
+    ---Local state. Can be used to draw only necessary UI elements and may be different from server
     local state = STATES.Idle
 
 
@@ -165,12 +275,46 @@ else
     local boxButton
     local slotsButtons
 
-    hook.add("DrawHUD", "Mouse", function()
+    local function createButtons()
         if !(sw and sh) then sw, sh = render.getGameResolution() end
-        if boxButton then
-            render.setColor(Color(0, 0, 0, 0))
+        if !slotsButtons then
+            local width, height = sw * 0.1, sh * 0.2
+            local firstRow, secondRow = sh * 0.4, sh * 0.65
+            slotsButtons = {
+                Button:new(sw * 0.18, firstRow, width, height),
+                Button:new(sw * 0.13, secondRow, width, height),
+                Button:new(sw * 0.3, firstRow, width, height),
+                Button:new(sw * 0.25, secondRow, width, height),
+            }
+            local getCallback = function(n)
+                return function()
+                    net.start("PutItem")
+                    net.writeInt(n, 5)
+                    net.send()
+                end
+            end
+            for i=1, #slotsButtons do
+                local b = slotsButtons[i]
+                slotsButtons[4 + i] = Button:new(sw - b.x - b.w, b.y, width, height)
+            end
+            for i, b in ipairs(slotsButtons) do
+                b:setCallback(getCallback(i))
+            end
+        end
+        if !boxButton then
+            boxButton = Button:new(sw * 0.4, sh * 0.6, sw * 0.2, sh * 0.3)
+            boxButton:setCallback(function()
+                net.start("GotItem")
+                net.send()
+            end)
+        end
+    end
+
+    hook.add("DrawHUD", "Mouse", function()
+        createButtons()
+        render.setColor(Color(0, 0, 0, 0))
+        if state == STATES.Box then
             boxButton:draw()
-            render.setColor(Color())
             for _, v in ipairs(slotsButtons) do
                 v:draw()
             end
@@ -201,24 +345,19 @@ else
             cam:setTargetPos(cameraPos.POS)
             state = STATES.Box
             net.start("Box")
-            net.writeEntity(seat)
             net.send()
         end)
         tw:sleep(1, function()
             input.enableCursor(true)
-            boxButton = Button:new(sw * 0.4, sh * 0.6, sw * 0.2, sh * 0.3)
-            slotsButtons = {
-                Button:new(sw * 0.16, sh * 0.4, sw * 0.1, sh * 0.2),
-                Button:new(sw * 0.13, sh * 0.65, sw * 0.1, sh * 0.2),
-                Button:new(sw * 0.3, sh * 0.4, sw * 0.1, sh * 0.2),
-                Button:new(sw * 0.25, sh * 0.65, sw * 0.1, sh * 0.2),
-            }
-            boxButton:setCallback(function()
-                net.start("GotItem")
-                net.writeEntity(seat)
-                net.send()
-            end)
         end)
         tw:start()
+    end)
+
+
+    net.receive("BoxRemoved", function()
+        state = STATES.Idle
+        local cameraPos = getLocalToSeat(seat, CAMERAS.ATTABLE)
+        cam:setTargetAngles(cameraPos.ANG)
+        cam:setTargetPos(cameraPos.POS)
     end)
 end

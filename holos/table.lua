@@ -5,7 +5,9 @@
 require("holos")
 
 if SERVER then
-    -- TODO: сделать под каждого игрока по одному ящику. можешь холку закинуть сюды:
+    --@include buckshot/holos/items.lua
+    require("buckshot/holos/items.lua")
+
     local function itemBox(pos, ang)
         local holos = {
             box = hologram.createPart(
@@ -56,7 +58,6 @@ if SERVER then
         holos.box:setPos(holos.box:getPos() + pos)
         return holos
     end
-    -- itemBox(Vector(29, 0, 32), Angle())
 
     ---Create table surface
     local function tablePart(multiplier, clientId)

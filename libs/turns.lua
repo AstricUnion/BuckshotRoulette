@@ -108,6 +108,16 @@ if SERVER then
     end
 
 
+    ---Get participant from player
+    ---@param player Player
+    ---@return Participant?
+    function Game:getParticipant(player)
+        for _, part in ipairs(self.participants) do
+            if part:getPlayer() == player then return part end
+        end
+    end
+
+
     ---Get players in participants
     ---@return number count, table players
     function Game:getPlayers()
