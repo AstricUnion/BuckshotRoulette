@@ -9,6 +9,7 @@ require("buckshot/libs/turns.lua")
 require("buckshot/holos/table.lua")
 
 CHIP = chip()
+OWNER = owner()
 
 ---@enum STATES
 STATES = {
@@ -147,11 +148,15 @@ if SERVER then
     end)
 
 
-    hook.add("PlayerEnteredVehicle", "StartGame", function(_, seat)
-        local index = table.keyFromValue(seats, seat)
-        if index then
+    hook.add("PlayerSay", "StartGame", function(ply, text)
+        if ply ~= OWNER then return end
+        if text == "!start" then
             if !game:isStarted() then
                 game:start()
+                for _, part in ipairs(game:getParticipants()) do
+                    ---@cast part Participant
+                    part.seat:lock()
+                end
             end
         end
     end)
@@ -182,7 +187,7 @@ if SERVER then
         part:updateData({state = STATES.Box})
         local seat = part.seat
         local key = table.keyFromValue(seats, seat)
-        animations.getBox(Table.boxes[key].box)
+        animations.getBox(Table.boxes[key])
     end)
 
     net.receive("GotItem", function(_, ply)
@@ -238,7 +243,7 @@ if SERVER then
         if length >= 8 then
             local seat = part.seat
             local key = table.keyFromValue(seats, seat)
-            animations.removeBox(Table.boxes[key].box)
+            animations.removeBox(Table.boxes[key])
             net.start("BoxRemoved")
             net.send(ply)
             return
@@ -274,6 +279,7 @@ else
     local sw, sh
     local boxButton
     local slotsButtons
+    local visibleCursor = false
 
     local function createButtons()
         if !(sw and sh) then sw, sh = render.getGameResolution() end
@@ -313,6 +319,12 @@ else
     hook.add("DrawHUD", "Mouse", function()
         createButtons()
         render.setColor(Color(0, 0, 0, 0))
+        local currentVisibility = input.getCursorVisible()
+        if !currentVisibility and visibleCursor then
+            input.enableCursor(true)
+        elseif currentVisibility and !visibleCursor then
+            input.enableCursor(false)
+        end
         if state == STATES.Box then
             boxButton:draw()
             for _, v in ipairs(slotsButtons) do
@@ -348,7 +360,7 @@ else
             net.send()
         end)
         tw:sleep(1, function()
-            input.enableCursor(true)
+            visibleCursor = true
         end)
         tw:start()
     end)

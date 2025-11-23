@@ -54,6 +54,7 @@ if SERVER then
             )
         }
         holos.boxLid:setParent(holos.box)
+        holos.boxLid:setLocalAngles(Angle(-180, 0, 0))
         holos.box:setAngles(ang)
         holos.box:setPos(holos.box:getPos() + pos)
         return holos
@@ -141,10 +142,10 @@ if SERVER then
             Holo(SubHolo(Vector(-3,0,38),Angle(2.5,-6,-90),"models/weapons/w_annabelle.mdl"))
         ),
         boxes = {
-            itemBox(Vector(29, 0, 30), Angle()),
-            itemBox(Vector(0, 29, 30), Angle(0, 90, 0)),
-            itemBox(Vector(-29, 0, 30), Angle(0, 180, 0)),
-            itemBox(Vector(0, -29, 30), Angle(0, -90, 0))
+            itemBox(Vector(29, 0, 25), Angle()),
+            itemBox(Vector(0, 29, 25), Angle(0, 90, 0)),
+            itemBox(Vector(-29, 0, 25), Angle(0, 180, 0)),
+            itemBox(Vector(0, -29, 25), Angle(0, -90, 0))
         }
     }
 
