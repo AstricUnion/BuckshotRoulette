@@ -2,7 +2,15 @@
 
 --[[ Holos ]]--
 --@include https://raw.githubusercontent.com/AstricUnion/Libs/refs/heads/main/holos.lua as holos
-require("holos")
+local holos = require("holos")
+---@class Holo
+local Holo = holos.Holo
+local Rig = holos.Rig
+local SubHolo = holos.SubHolo
+---@class Trail
+local Trail = holos.Trail
+---@class Clip
+local Clip = holos.Clip
 
 if SERVER then
     --@include buckshot/holos/items.lua

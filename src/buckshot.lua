@@ -157,6 +157,7 @@ if SERVER then
                     ---@cast part Participant
                     part.seat:lock()
                 end
+                return ""
             end
         end
     end)
@@ -241,8 +242,6 @@ if SERVER then
             end
         end
         if length >= 8 then
-            local seat = part.seat
-            local key = table.keyFromValue(seats, seat)
             animations.removeBox(Table.boxes[key])
             net.start("BoxRemoved")
             net.send(ply)
