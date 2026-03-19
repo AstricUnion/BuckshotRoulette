@@ -14,7 +14,7 @@ local activeCamera = nil
 ---@field targetAngle Angle?
 ---@field targetPos Vector?
 ---@field targetFov number?
-Camera = {}
+local Camera = {}
 Camera.__index = Camera
 
 
@@ -93,8 +93,8 @@ hook.add("CalcView", "PinCamera", function()
     }
 end)
 
-
-camera = {}
+---@class camera
+local camera = {}
 
 
 ---Create new camera
@@ -133,3 +133,5 @@ function camera.get()
     return activeCamera
 end
 
+
+return camera
