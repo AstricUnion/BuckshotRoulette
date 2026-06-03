@@ -1,0 +1,3 @@
+[submodule "libs/model"]
+	path = libs/model
+	url = git@github.com:AstricUnion/BModel
