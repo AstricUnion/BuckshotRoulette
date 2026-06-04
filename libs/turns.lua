@@ -9,9 +9,10 @@
 ---@field ent Entity
 ---@field minPlayers number How many players game requires. By default 2
 ---@field timeout number Timeout for participant, in seconds. By default 60
----@field dataToUpdate table<number, table<string, any>> [SERVER] Participants to update data
----@field dataHandles boolean [SERVER] Is data handles now
+---@field private dataToUpdate table<number, table<string, any>> [SERVER] Participants to update data
+---@field private dataHandles boolean [SERVER] Is data handles now
 ---@field currentTurn number? Current turn with sorted ID. Nil if game not started
+---@field turnDirection number Turn direction. Can be 1 (clock-wise) or -1 (counter-clock-wise), but addicted to chair position
 ---@field isStarted boolean Is game started
 local turns = {}
 turns.participants = {}
@@ -22,6 +23,7 @@ turns.timeout = 60
 turns.dataToUpdate = {}
 turns.dataHandles = false
 turns.currentTurn = nil
+turns.turnDirection = 1
 turns.isStarted = false
 
 
@@ -34,8 +36,16 @@ turns.isStarted = false
 ---@field sortedId number Sorted index, for participantsSorted
 ---@field timeout number When participant timeouts
 ---@field data table<string, any> Data of the chair. Will be networked at all clients
+---@field initialData table<string, any> Initial data of the chair
 local Participant = {}
 Participant.__index = Participant
+function Participant:__tostring()
+    return string.format("Participant[%s]", self.entId)
+end
+
+function Participant:__eq(obj)
+    return self.entId == obj.entId
+end
 
 
 if SERVER then
@@ -49,7 +59,7 @@ if SERVER then
         ent:setParent(turns.ent)
         local entId = ent:entIndex()
         local sortedId = #turns.participantsSorted+1
-        local obj = setmetatable({ ent = ent, entId = entId, sortedId = sortedId, data = initialData }, Participant)
+        local obj = setmetatable({ ent = ent, entId = entId, sortedId = sortedId, data = table.copy(initialData), initialData = initialData }, Participant)
         net.start("TurnsInitializeParticipants")
             net.writeTable({obj})
         net.send(find.allPlayers())
@@ -84,6 +94,11 @@ if SERVER then
                 end
             end)
         end
+    end
+
+    ---[SERVER] Reset participant data
+    function Participant:reset()
+        self.data = table.copy(self.initialData)
     end
 
 
@@ -162,6 +177,9 @@ end
 ---@param participant Participant Current turn
 function turns.gameStarted(participant) end
 
+---[SHARED] Hook on game stop
+function turns.gameStopped() end
+
 ---[SHARED] Some player becomes participant
 ---@param ply Player Player, that became participant
 ---@param participant Participant Participant
@@ -172,6 +190,15 @@ function turns.newParticipant(ply, participant) end
 ---@param participant Participant Participant
 function turns.participantLeft(ply, participant) end
 
+---[SHARED] Participant timeout
+---@param participant Participant Participant
+function turns.participantTimedOut(participant) end
+
+---[SHARED] Participant turn changed
+---@param oldTurn Participant
+---@param newTurn Participant
+function turns.turnChanged(oldTurn, newTurn) end
+
 
 if SERVER then
     ---[SERVER] When player became participant
@@ -179,9 +206,8 @@ if SERVER then
         local entId = veh:entIndex()
         local part = turns.participants[entId]
         if !part then return end
-        enableHud(ply, true)
         net.start("TurnsNewParticipantPlayer")
-            net.writeUInt(entId, 32)
+            net.writeUInt(part.sortedId, 8)
             net.writeEntity(ply)
         net.send(find.allPlayers())
         turns.newParticipant(ply, part)
@@ -192,28 +218,29 @@ if SERVER then
         local entId = veh:entIndex()
         local part = turns.participants[entId]
         if !part then return end
-        enableHud(ply, false)
         net.start("TurnsParticipantPlayerLeft")
-            net.writeUInt(entId, 32)
+            net.writeUInt(part.sortedId, 8)
             net.writeEntity(ply)
         net.send(find.allPlayers())
-        part.timeout = timer.curtime() + turns.timeout
+        if turns.isStarted then
+            part.timeout = timer.curtime() + turns.timeout
+        end
         turns.participantLeft(ply, part)
     end)
 else
     net.receive("TurnsNewParticipantPlayer", function()
-        local partId = net.readUInt(32)
+        local partId = net.readUInt(8)
         net.readEntity(function(ply)
-            local part = turns.participants[partId]
+            local part = turns.participantsSorted[partId]
             if !part then return end
             turns.newParticipant(ply, part)
         end)
     end)
 
     net.receive("TurnsParticipantPlayerLeft", function()
-        local partId = net.readUInt(32)
+        local partId = net.readUInt(8)
         net.readEntity(function(ply)
-            local part = turns.participants[partId]
+            local part = turns.participantsSorted[partId]
             if !part then return end
             part.timeout = timer.curtime() + turns.timeout
             turns.participantLeft(ply, part)
@@ -221,8 +248,27 @@ else
     end)
 end
 
+hook.add("Think", "TurnsParticipantTimeout", function()
+    if !turns.isStarted then return end
+    for _, v in ipairs(turns.participantsSorted) do
+        if !v.timeout or timer.curtime() < v.timeout then goto cont end
+        turns.participantTimedOut(v)
+        v.timeout = nil
+        ::cont::
+    end
+end)
+
 
 ---------- Game functions ----------
+
+---[SHARED] Get participant from player
+---@param ply Player
+---@return Participant? participant
+function turns.getParticipant(ply)
+    local veh = ply:getVehicle()
+    if !isValid(veh) then return end
+    return turns.participants[veh:entIndex()]
+end
 
 ---[SHARED] Get active participants of this game
 ---@return Participant[]
@@ -234,9 +280,18 @@ function turns.getActiveParticipants()
     return active
 end
 
+---[SHARED] Get current turn
+---@return Participant? participant Participant. Can be nil, if game not started
+function turns.getTurn()
+    if !turns.isStarted then return end
+    return turns.participantsSorted[turns.currentTurn]
+end
+
+
 if SERVER then
     ---[SERVER] Start game
     function turns.start()
+        if turns.isStarted then return end
         local parts = turns.getActiveParticipants()
         local count = #parts
         if count < turns.minPlayers then return end
@@ -244,18 +299,81 @@ if SERVER then
         net.start("TurnsGameStarted")
             net.writeUInt(participant.sortedId, 8)
         net.send(find.allPlayers())
+        turns.isStarted = true
+        turns.currentTurn = participant.sortedId
         turns.gameStarted(participant)
     end
+
+    ---[SERVER] Stop game
+    function turns.stop()
+        if !turns.isStarted then return end
+        net.start("TurnsGameStopped")
+        net.send(find.allPlayers())
+        turns.gameStopped()
+        turns.isStarted = false
+        turns.currentTurn = nil
+        for _, v in ipairs(turns.participantsSorted) do
+            v:reset()
+        end
+    end
+
+    ---[SERVER] Change turn to next participant
+    ---@return Participant? newTurn Participant, that received turn or nil, if game stopped
+    function turns.nextTurn()
+        if !turns.isStarted then
+            throw("Game is not started!")
+            return
+        end
+        local partCount = #turns.participantsSorted
+        local loopedIndex = turns.currentTurn
+        local dir = turns.turnDirection
+        for _=1, partCount, dir do
+            loopedIndex = loopedIndex + dir
+            if dir * loopedIndex > dir * partCount then
+                loopedIndex = dir == 1 and 1 or partCount
+            end
+            local part = turns.participantsSorted[loopedIndex]
+            if part:getPlayer() then
+                turns.currentTurn = loopedIndex
+                net.start("TurnsTurnChanged")
+                    net.writeUInt(loopedIndex, 8)
+                net.send(find.allPlayers())
+                return part
+            end
+        end
+        turns.stop()
+    end
 else
+    local Ply = player()
+
+    ---[CLIENT] Get participant of local player
+    function turns.getLocalPlayerParticipant()
+        return turns.getParticipant(Ply)
+    end
+
     net.receive("TurnsGameStarted", function()
         turns.isStarted = true
         local partId = net.readUInt(8)
         local part = turns.participantsSorted[partId]
         if !part then return end
+        turns.currentTurn = part.sortedId
         turns.gameStarted(part)
     end)
-end
 
+    net.receive("TurnsGameStopped", function()
+        turns.gameStopped()
+        turns.isStarted = false
+        turns.currentTurn = nil
+    end)
+
+    net.receive("TurnsTurnChanged", function()
+        local partId = net.readUInt(8)
+        local newTurn = turns.participantsSorted[partId]
+        local oldTurn = turns.participantsSorted[turns.currentTurn]
+        turns.turnChanged(oldTurn, newTurn)
+        turns.currentTurn = partId
+    end)
+end
 
 
 return turns
