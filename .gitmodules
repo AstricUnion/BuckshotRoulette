@@ -1,3 +1,6 @@
 [submodule "libs/model"]
 	path = libs/model
 	url = git@github.com:AstricUnion/BModel
+[submodule "libs/tween"]
+	path = libs/tween
+	url = git@github.com:AstricUnion/Tween

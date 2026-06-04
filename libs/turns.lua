@@ -2,6 +2,8 @@
 ---@author AstricUnion
 ---@shared
 
+local Ply = CLIENT and player() or nil
+
 ---Class to manipulate games with turns
 ---@class turns
 ---@field participants table<number, Participant> Initialized participants
@@ -9,7 +11,9 @@
 ---@field ent Entity
 ---@field minPlayers number How many players game requires. By default 2
 ---@field timeout number Timeout for participant, in seconds. By default 60
----@field private dataToUpdate table<number, table<string, any>> [SERVER] Participants to update data
+---@field private partDataToUpdate table<number, table<string, any>> [SERVER] Participants to update data
+---@field private partDataHandles boolean [SERVER] Is participant data handles now
+---@field data table<string, any> Game data
 ---@field private dataHandles boolean [SERVER] Is data handles now
 ---@field currentTurn number? Current turn with sorted ID. Nil if game not started
 ---@field turnDirection number Turn direction. Can be 1 (clock-wise) or -1 (counter-clock-wise), but addicted to chair position
@@ -20,7 +24,9 @@ turns.participantsSorted = {}
 turns.ent = chip()
 turns.minPlayers = 2
 turns.timeout = 60
-turns.dataToUpdate = {}
+turns.partDataToUpdate = {}
+turns.partDataHandles = false
+turns.data = {}
 turns.dataHandles = false
 turns.currentTurn = nil
 turns.turnDirection = 1
@@ -75,15 +81,37 @@ if SERVER then
     function Participant:setData(key, value)
         if !istable(value) and self.data[key] == value then return end
         self.data[key] = value
-        local toUpdate = turns.dataToUpdate[self.entId] or {}
-        toUpdate[key] = value
-        turns.dataToUpdate[self.entId] = toUpdate
+        local toUpdate = turns.partDataToUpdate[self.entId] or {}
+        toUpdate[key] = value ~= nil and value or false
+        turns.partDataToUpdate[self.entId] = toUpdate
         local sendChanges = function()
-            if table.isEmpty(turns.dataToUpdate) then return false end
+            if table.isEmpty(turns.partDataToUpdate) then return true end
             net.start("TurnsUpdateParticipantData")
-                net.writeTable(turns.dataToUpdate)
+                net.writeTable(turns.partDataToUpdate)
             net.send(find.allPlayers())
-            turns.dataToUpdate = {}
+            turns.partDataToUpdate = {}
+            return true
+        end
+        if !turns.partDataHandles then
+            turns.partDataHandles = true
+            timer.simple(0, function()
+                if sendChanges() then
+                    turns.partDataHandles = false
+                end
+            end)
+        end
+    end
+
+    ---[SERVER] Set data for game
+    ---@param key string
+    ---@param value any
+    function turns.setData(key, value)
+        if !istable(value) and turns.data[key] == value then return end
+        turns.data[key] = value
+        local sendChanges = function()
+            net.start("TurnsUpdateData")
+                net.writeTable(turns.data)
+            net.send(find.allPlayers())
             return true
         end
         if !turns.dataHandles then
@@ -96,21 +124,33 @@ if SERVER then
         end
     end
 
+    ---[SERVER] Get data from game
+    ---@param key string
+    ---@return any value
+    function turns.getData(key)
+        return turns.data[key]
+    end
+
     ---[SERVER] Reset participant data
     function Participant:reset()
         self.data = table.copy(self.initialData)
     end
 
-
     hook.add("ClientInitialized", "TurnsInitialize", function(ply)
-        if table.isEmpty(turns.participants) then return end
-        local toInit = {}
-        for _, v in pairs(turns.participants) do
-            toInit[#toInit+1] = v
+        if !table.isEmpty(turns.participants) then
+            local toInit = {}
+            for _, v in pairs(turns.participants) do
+                toInit[#toInit+1] = v
+            end
+            net.start("TurnsInitializeParticipants")
+                net.writeTable(toInit)
+            net.send(ply)
         end
-        net.start("TurnsInitializeParticipants")
-            net.writeTable(toInit)
-        net.send(ply)
+        if !table.isEmpty(turns.data) then
+            net.start("TurnsUpdateData")
+                net.writeTable(turns.data)
+            net.send(ply)
+        end
     end)
 else
     local toInit = {}
@@ -148,11 +188,19 @@ else
         local toUpdate = net.readTable()
         for entId, data in pairs(toUpdate) do
             local part = turns.participants[entId]
+            local oldData = table.copy(part.data)
             if !part then return end
             for key, value in pairs(data) do
                 part.data[key] = value
             end
+            turns.participantDataChanged(part, oldData, part.data, Ply == part:getPlayer())
         end
+    end)
+
+    net.receive("TurnsUpdateData", function()
+        local data = net.readTable()
+        turns.dataChanged(turns.data, data)
+        turns.data = data
     end)
 end
 
@@ -168,6 +216,13 @@ end
 function Participant:getTimeoutRemaining()
     local diff = self.timeout and self.timeout - timer.curtime() or 0
     return diff > 0 and diff or nil
+end
+
+---[SHARED] Get participant data.
+---@param key string
+---@return any value
+function Participant:getData(key)
+    return self.data[key]
 end
 
 
@@ -228,6 +283,18 @@ if SERVER then
         turns.participantLeft(ply, part)
     end)
 else
+    ---[CLIENT] Participant data changed
+    ---@param part Participant Participant with data change
+    ---@param oldData table<string, any> Old data
+    ---@param newData table<string, any> New data
+    ---@param isLocalPlayer boolean Is participant local player
+    function turns.participantDataChanged(part, oldData, newData, isLocalPlayer) end
+
+    ---[CLIENT] Game data changed
+    ---@param oldData table<string, any> Old data
+    ---@param newData table<string, any> New data
+    function turns.dataChanged(oldData, newData) end
+
     net.receive("TurnsNewParticipantPlayer", function()
         local partId = net.readUInt(8)
         net.readEntity(function(ply)
@@ -344,8 +411,6 @@ if SERVER then
         turns.stop()
     end
 else
-    local Ply = player()
-
     ---[CLIENT] Get participant of local player
     function turns.getLocalPlayerParticipant()
         return turns.getParticipant(Ply)
