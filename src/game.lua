@@ -10,6 +10,31 @@ turns.timeout = 5
 turns.minPlayers = 1
 
 
+---@class Beer: Item
+local Beer = {}
+Beer.Identifier = "beer"
+Beer.Model = "models/props_junk/popcan01a.mdl"
+
+function Beer:onUse()
+    if SERVER then
+        local shells = turns.getData("shells")
+        local lastShell = table.remove(shells)
+        if shells[#shells] == nil then
+            turns.startItems()
+        end
+        turns.setData("shells", shells)
+    else
+        local shells = turns.getData("shells")
+        if turns.getLocalPlayerParticipant() then
+            printHud("Shell drawed, it's " .. (shells[#shells] and "live" or "blank"))
+        end
+        self.model:remove()
+    end
+end
+
+items.register(Beer)
+
+
 ---@enum STATE
 local STATE = {
     ---Player have no health on round
@@ -44,7 +69,7 @@ local STEP = {
 
 ---@enum CAMERA
 local CAMERA = CLIENT and {
-    Default = camera.preset(Vector(0, 10, 60), Angle(10, 90, 0), 90),
+    Default = camera.preset(Vector(0, 10, 60), Angle(10, 90, 0), 100),
     AtTable = camera.preset(Vector(0, 12, 55), Angle(50, 90, 0), 90),
     AtScreen = camera.preset(Vector(0, 20, 40), Angle(60, 90, 0), 90),
     AtBox = camera.preset(Vector(0, 14, 52), Angle(55, 90, 0), 90),
@@ -59,7 +84,11 @@ local CAMERA = CLIENT and {
 ---@enum SHOTGUN
 local SHOTGUN = CLIENT and {
     InHands = {Vector(0, 24, 38), Angle(30, 0, 0)},
-    OnTable = {Vector(0, 50, 32), Angle(0, 0, 90)}
+    OnTable = {Vector(0, 50, 32), Angle(0, -90, 90)},
+    AtPlayer0 = {Vector(0, 30, 30), Angle(90, 90, 0)},
+    AtPlayer1 = {Vector(-18, 30, 45), Angle(10, -30, 0)},
+    AtPlayer2 = {Vector(10, 36, 45), Angle(10, -90, 0)},
+    AtPlayer3 = {Vector(18, 30, 45), Angle(10, -150, 0)},
 } or {}
 
 if SERVER then
@@ -149,7 +178,7 @@ if SERVER then
     end)
 
     -- Take boxes and start take items
-    local function startItems()
+    function turns.startItems()
         local parts = {}
         for _, v in ipairs(turns.participantsSorted) do
             if v:getData("health") == 0 then goto cont end
@@ -182,7 +211,7 @@ if SERVER then
     end
 
     function turns.gameStarted()
-        startItems()
+        turns.startItems()
     end
 
     local inputByState = {
@@ -220,10 +249,25 @@ if SERVER then
                 part:setData("items", slots)
             end
         end,
-        [STATE.Idle] = function(part, area)
-            if area ~= "shotgun" then return end
-            part:setData("state", STATE.WithShotgun)
-            turns.sendSignal("TakeShotgun", {participantId = part.sortedId})
+        [STATE.Idle] = function(part, area, data)
+            if turns.getTurn() ~= part then return end
+            -- If player tried to use item
+            if string.startsWith(area, "slot") then
+                local slot = tonumber(string.replace(area, "slot", ""))  -- Get slot area
+                ---@cast slot number
+                local slots = data.items
+                local itemId = slots[slot]
+                if !itemId then return end
+                slots[slot] = nil
+                part:setData("items", slots)
+                local item = items.inited[itemId]
+                if !item then return end
+                item:use()
+            end
+            if area == "shotgun" then
+                part:setData("state", STATE.WithShotgun)
+                turns.sendSignal("TakeShotgun", {participantId = part.sortedId})
+            end
         end,
         [STATE.WithShotgun] = function(part, area, data)
             if string.startsWith(area, "player") then
@@ -255,7 +299,7 @@ if SERVER then
                     part:setData("shootAt", nil)
                     part:setData("state", STATE.Idle)
                     if shells[#shells] == nil then
-                        startItems()
+                        turns.startItems()
                     end
                 end)
                 turns.setData("shells", shells)
@@ -329,11 +373,15 @@ else
 
 
     turns.signal("ShootAt", function(data)
-        local part = turns.getLocalPlayerParticipant()
-        if data.participantId == part.sortedId then
+        local currentPart = turns.getLocalPlayerParticipant()
+        if data.participantId == currentPart.sortedId then
             CAMERA["AtPlayer" .. data.shootAt]()
             interactive.enableGroup("players", false)
         end
+        local part = turns.participantsSorted[data.participantId]
+        local shotgun = SHOTGUN["AtPlayer" .. data.shootAt]
+        shotgunHolo:setPos(part.ent:localToWorld(shotgun[1]))
+        shotgunHolo:setAngles(part.ent:localToWorldAngles(shotgun[2]))
     end)
 
     local function changeTurn(turn)
@@ -375,6 +423,11 @@ else
         if part:getData("state") == STATE.Death then
             render.setColor(Color(0, 0, 0))
             render.drawRect(0, 0, sw, sh)
+        end
+
+        render.setFont("Trebuchet18")
+        for i, v in ipairs(turns.getActiveParticipants()) do
+            render.drawSimpleText(sw - 32, sh - (i * 18), string.format("%s: %s", v:getPlayer():getName(), v:getData("health")), TEXT_ALIGN.RIGHT, TEXT_ALIGN.BOTTOM)
         end
     end)
 end

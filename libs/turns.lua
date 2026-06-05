@@ -124,13 +124,6 @@ if SERVER then
         end
     end
 
-    ---[SERVER] Get data from game
-    ---@param key string
-    ---@return any value
-    function turns.getData(key)
-        return turns.data[key]
-    end
-
     ---[SERVER] Reset participant data
     function Participant:reset()
         self.data = table.copy(self.initialData)
@@ -223,6 +216,13 @@ end
 ---@return any value
 function Participant:getData(key)
     return self.data[key]
+end
+
+---[SHARED] Get data from game
+---@param key string
+---@return any value
+function turns.getData(key)
+    return turns.data[key]
 end
 
 

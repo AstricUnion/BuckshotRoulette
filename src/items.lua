@@ -47,6 +47,26 @@ if SERVER then
         return obj
     end
 
+    ---[SERVER] Remove item
+    function Item:remove()
+        items.inited[self.id] = nil
+        net.start("BuckshotItemRemove")
+            net.writeUInt(self.id, 32)
+        net.send(find.allPlayers())
+        setmetatable(self, nil)
+    end
+
+    ---[SERVER] Remove item
+    function Item:use()
+        items.inited[self.id] = nil
+        net.start("BuckshotItemUse")
+            net.writeUInt(self.id, 32)
+        net.send(find.allPlayers())
+        self:onUse()
+        setmetatable(self, nil)
+    end
+
+
     hook.add("ClientInitialized", "BuckshotInitializeItems", function(ply)
         if table.isEmpty(items.inited) then return end
         local toInit = {}
@@ -113,7 +133,29 @@ else
     net.receive("BuckshotInitializeItems", function()
         toInit = table.add(toInit, net.readTable())
     end)
+
+    -- Remove entity on client
+    net.receive("BuckshotItemRemove", function()
+        local id = net.readUInt(32)
+        local item = items.inited[id]
+        item.model:remove()
+        setmetatable(item, nil)
+        items.inited[id] = nil
+    end)
+
+
+    -- Use entity on client
+    net.receive("BuckshotItemUse", function()
+        local id = net.readUInt(32)
+        local item = items.inited[id]
+        item:onUse()
+        setmetatable(item, nil)
+        items.inited[id] = nil
+    end)
 end
+
+---[SHARED] Hook on use item
+function Item:onUse() end
 
 ---[SHARED] Register new item class
 ---@param class table
@@ -127,13 +169,5 @@ function items.register(class)
     inheritedClass.__index = class
     items.registered[id] = class
 end
-
-
----@class Beer: Item
-local Beer = {}
-Beer.Identifier = "beer"
-Beer.Model = "models/props_junk/popcan01a.mdl"
-items.register(Beer)
-
 
 return items
