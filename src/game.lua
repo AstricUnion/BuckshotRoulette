@@ -63,8 +63,6 @@ local STEP = {
     Shotgun = 1,
     ---Participants plays game
     Gameplay = 2,
-    ---Interround time (displays)
-    Interround = 3
 }
 
 ---@enum CAMERA

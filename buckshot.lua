@@ -1,11 +1,18 @@
 ---@name Buckshot Roulette
 ---@author AstricUnion
 ---@shared
+---@include buckshot/libs/model/model.lua
 ---@include buckshot/libs/turns.lua
 ---@include buckshot/libs/camera.lua
 ---@include buckshot/src/items.lua
 ---@include buckshot/src/interactive.lua
 ---@include buckshot/src/game.lua
+---@includedir buckshot/models
+
+---@class model
+model = require("buckshot/libs/model/model.lua")
+
+dodir("buckshot/models", {})
 
 ---@class turns
 turns = require("buckshot/libs/turns.lua")
