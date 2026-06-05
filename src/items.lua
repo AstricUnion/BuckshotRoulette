@@ -5,7 +5,7 @@ local items = {}
 items.registered = {}
 items.inited = {}
 
-local TABLEHEIGHT = 29
+local TABLEHEIGHT = 32.5
 ---Slots positions (by IDs, for player, relative to seat):
 ---1 3   7 5
 ---2 4   8 6

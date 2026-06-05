@@ -354,6 +354,46 @@ function turns.getTurn()
     return turns.participantsSorted[turns.currentTurn]
 end
 
+-- from SpaceMapSF
+---Cycle value
+---@param num number
+---@param min number
+---@param max number
+---@return number cycledNum
+local function cycle(num, min, max)
+    while num < min or num > max do
+        if num < min then
+            num = max - (min - num)
+        elseif num > max then
+            num = min + (num - max)
+        end
+    end
+    return num
+end
+
+
+---[SHARED] Get participant by local id (when 4, 1 will be left, 2 will be forward, 3 will be right, 0 is you)
+---@param part Participant Participant
+---@param localId number Local ID
+---@return Participant
+function turns.getLocalParticipant(part, localId)
+    local sorted = turns.participantsSorted
+    local id = cycle(part.sortedId + localId, 0, #sorted)
+    local found = sorted[id]
+    return found
+end
+
+
+---[SHARED] Get local id of participant
+---@param part Participant Participant
+---@param part2 Participant Participant to found ID
+---@return number
+function turns.getParticipantLocalId(part, part2)
+    local sorted = turns.participantsSorted
+    local diff = part2.sortedId - part.sortedId
+    return cycle(diff, 0, #sorted)
+end
+
 
 if SERVER then
     ---[SERVER] Start game
@@ -401,6 +441,7 @@ if SERVER then
             end
             local part = turns.participantsSorted[loopedIndex]
             if part:getPlayer() then
+                turns.turnChanged(turns.participantsSorted[turns.currentTurn], part)
                 turns.currentTurn = loopedIndex
                 net.start("TurnsTurnChanged")
                     net.writeUInt(loopedIndex, 8)
@@ -409,6 +450,18 @@ if SERVER then
             end
         end
         turns.stop()
+    end
+
+    ---[SERVER] Turn again
+    function turns.turnAgain()
+        if !turns.isStarted then
+            throw("Game is not started!")
+            return
+        end
+        net.start("TurnsTurnChanged")
+            net.writeUInt(turns.currentTurn, 8)
+        net.send(find.allPlayers())
+        turns.turnChanged(turns.participantsSorted[turns.currentTurn], turns.participantsSorted[turns.currentTurn])
     end
 else
     ---[CLIENT] Get participant of local player

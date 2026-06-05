@@ -48,7 +48,18 @@ local CAMERA = CLIENT and {
     AtTable = camera.preset(Vector(0, 12, 55), Angle(50, 90, 0), 90),
     AtScreen = camera.preset(Vector(0, 20, 40), Angle(60, 90, 0), 90),
     AtBox = camera.preset(Vector(0, 14, 52), Angle(55, 90, 0), 90),
-    AtShotgun = camera.preset(Vector(0, 42, 48), Angle(60, 120, 0), 90)
+    AtShotgun = camera.preset(Vector(0, 42, 48), Angle(60, 120, 0), 90),
+
+    AtPlayer0 = camera.preset(Vector(0, 10, 60), Angle(30, 90, 0), 90),
+    AtPlayer1 = camera.preset(Vector(0, 10, 60), Angle(10, 120, 0), 90),
+    AtPlayer2 = camera.preset(Vector(0, 10, 60), Angle(10, 90, 0), 90),
+    AtPlayer3 = camera.preset(Vector(0, 10, 60), Angle(10, 60, 0), 90),
+} or {}
+
+---@enum SHOTGUN
+local SHOTGUN = CLIENT and {
+    InHands = {Vector(0, 24, 38), Angle(30, 0, 0)},
+    OnTable = {Vector(0, 50, 32), Angle(0, 0, 90)}
 } or {}
 
 if SERVER then
@@ -59,6 +70,7 @@ if SERVER then
 
     local initialData = {
         itemsToTook = {}, -- Items to pickup, server generates it
+        shootAt = nil, -- Current shoot at player
         items = {}, -- Maximum 8 items
         health = 6, -- Player health, maximum 6
         isJammed = false, -- Is player jammed by other player
@@ -73,6 +85,7 @@ if SERVER then
     turns.addParticipant(Vector(0, chairDist, 0), Angle(0, 180, 0), chairModel, initialData)
 
     turns.setData("gameStep", STEP.NoGame)
+    turns.setData("shells", {})
 else
     -- Add interactive areas
     local width, height = 0.1, 0.2
@@ -91,9 +104,14 @@ else
     end
 
     interactive.addArea("box", 0.4, 0.6, 0.2, 0.3)
+    interactive.addArea("shotgun", 0.4, 0, 0.2, 0.4)
     for i, v in ipairs(slots) do
         interactive.addArea("slot" .. i, unpack(v))
     end
+    interactive.addArea("player0", 0.3, 0.8, 0.4, 0.2, "players") -- Self
+    interactive.addArea("player1", 0, 0.2, 0.2, 0.6, "players") -- Left
+    interactive.addArea("player2", 0.4, 0.25, 0.2, 0.4, "players") -- Forward
+    interactive.addArea("player3", 0.8, 0.2, 0.2, 0.6, "players") -- Right
     interactive.enableDraw(true)
 end
 
@@ -129,17 +147,14 @@ function turns.gameStarted()
             goto cont
         end
         v:setData("state", STATE.Box)
-        v:setData("itemsToTook", {"beer", "beer", "beer"})
+        v:setData("itemsToTook", {"beer"})
         ::cont::
     end
     turns.setData("gameStep", STEP.Items)
+    turns.setData("shells", {true, false, true, false, true})
 end
 
 if SERVER then
-    local shotgunHolo = hologram.create(chip():getPos() + Vector(0, 0, 32), chip():getAngles() + Angle(0, 0, 90), "models/weapons/w_annabelle.mdl")
-    if !shotgunHolo then return end
-    shotgunHolo:setParent(chip())
-
     hook.add("PlayerSay", "StartGame", function(ply, text)
         if ply == owner() and text == "!start" then
             turns.start()
@@ -191,10 +206,69 @@ if SERVER then
             end
             return
         end
+
+        if state == STATE.Idle then
+            if area == "shotgun" then
+                part:setData("state", STATE.WithShotgun)
+            end
+        end
+
+        if state == STATE.WithShotgun then
+            if string.startsWith(area, "player") then
+                local partAddStr = string.gsub(area, "player", "")
+                local partAdd = tonumber(partAddStr)
+                if !partAdd then return end
+                local target = turns.getLocalParticipant(part, partAdd)
+                print(target:getPlayer())
+                if !target:getPlayer() then return end
+                local shells = turns.getData("shells")
+                part:setData("shootAt", partAdd)
+                local lastShellId = #shells
+                local lastShell = shells[lastShellId]
+                if lastShell then
+                    timer.simple(1, function()
+                        local health = target:getData("health") - 1
+                        target:setData("state", STATE.Death)
+                        print(target, health)
+                        if health > 0 then
+                            timer.simple(1, function()
+                                target:setData("state", STATE.Idle)
+                            end)
+                        end
+                        target:setData("health", health)
+                    end)
+                end
+                timer.simple(2, function()
+                    if (lastShell and target == part) or target ~= part then
+                        turns.nextTurn()
+                    else
+                        turns.turnAgain()
+                    end
+                    part:setData("shootAt", nil)
+                    part:setData("state", STATE.Idle)
+                    if shells[#shells] == nil then
+                        for _, v in ipairs(turns.participantsSorted) do
+                            v:setData("state", STATE.Box)
+                            v:setData("itemsToTook", {"beer"})
+                        end
+                        turns.setData("gameStep", STEP.Items)
+                        turns.setData("shells", {false, true})
+                    end
+                end)
+                shells[lastShellId] = nil
+                turns.setData("shells", shells)
+            end
+        end
     end
+
 else
+
+    local shotgunHolo = hologram.create(chip():getPos() + Vector(0, 0, 32), chip():getAngles() + Angle(0, 0, 90), "models/weapons/w_annabelle.mdl")
+    if !shotgunHolo then return end
+    shotgunHolo:setParent(chip())
+
     function turns.participantDataChanged(part, oldData, newData, isLocal)
-        if oldData.state == STATE.Idle and newData.state == STATE.Box then
+        if newData.state == STATE.Box then
             if isLocal then
                 CAMERA.AtBox()
                 interactive.enableGroup("slots", true)
@@ -202,6 +276,7 @@ else
                 -- todo: hook to enable cursor persistent
                 input.enableCursor(true)
             end
+            return
         end
         if oldData.state == STATE.Box and oldData.itemInHand and !newData.itemInHand then
             for slot, itemId in pairs(newData.items) do
@@ -217,7 +292,41 @@ else
                 interactive.enable("box", false)
                 input.enableCursor(false)
             end
+            return
         end
+        if oldData.state == STATE.Idle and newData.state == STATE.WithShotgun then
+            if isLocal then
+                CAMERA.Default()
+                interactive.enableGroup("players", true)
+                interactive.enableGroup("slots", false)
+                interactive.enable("shotgun", false)
+            end
+            shotgunHolo:setPos(part.ent:localToWorld(SHOTGUN.InHands[1]))
+            shotgunHolo:setAngles(part.ent:localToWorldAngles(SHOTGUN.InHands[2]))
+            return
+        end
+        if newData.state == STATE.WithShotgun and !oldData.shootAt and newData.shootAt then
+            if isLocal then
+                CAMERA["AtPlayer" .. newData.shootAt]()
+                interactive.enableGroup("players", false)
+            end
+            return
+        end
+    end
+
+    local function changeTurn(turn)
+        local part = turns.getLocalPlayerParticipant()
+        if turn == part then
+            CAMERA.AtTable()
+            interactive.enableGroup("slots", true)
+            interactive.enable("shotgun", true)
+            input.enableCursor(true)
+        else
+            local localId = turns.getParticipantLocalId(part, turn)
+            CAMERA["AtPlayer" .. localId]()
+        end
+        shotgunHolo:setPos(part.ent:localToWorld(SHOTGUN.OnTable[1]))
+        shotgunHolo:setAngles(part.ent:localToWorldAngles(SHOTGUN.OnTable[2]))
     end
 
     function turns.dataChanged(old, new)
@@ -226,13 +335,23 @@ else
             return
         end
         if old.gameStep == STEP.Shotgun and new.gameStep == STEP.Gameplay then
-            local part = turns.getLocalPlayerParticipant()
-            if turns.getTurn() == part then
-                CAMERA.AtTable()
-            else
-                CAMERA.Default()
-            end
+            local turn = turns.getTurn()
+            if !turn then return end
+            changeTurn(turn)
             return
         end
     end
+
+    function turns.turnChanged(old, new)
+        changeTurn(new)
+    end
+
+    hook.add("PostDrawHUD", "deathEffect", function()
+        local part = turns.getLocalPlayerParticipant()
+        local sw, sh = render.getGameResolution()
+        if part:getData("state") == STATE.Death then
+            render.setColor(Color(0, 0, 0))
+            render.drawRect(0, 0, sw, sh)
+        end
+    end)
 end
