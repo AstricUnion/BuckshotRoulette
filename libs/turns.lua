@@ -463,10 +463,30 @@ if SERVER then
         net.send(find.allPlayers())
         turns.turnChanged(turns.participantsSorted[turns.currentTurn], turns.participantsSorted[turns.currentTurn])
     end
+
+
+    ---[SERVER] Send signal to clients (as example start animation)
+    ---@param name string
+    ---@param data table
+    function turns.sendSignal(name, data)
+        net.start("TurnsSignal" .. name)
+            net.writeTable(data)
+        net.send(find.allPlayers())
+    end
 else
     ---[CLIENT] Get participant of local player
     function turns.getLocalPlayerParticipant()
         return turns.getParticipant(Ply)
+    end
+
+    ---[CLIENT] Handle signal
+    ---@param name string Identifier of signal
+    ---@param callback fun(data: table) Callback, first parameter is payload from server
+    function turns.signal(name, callback)
+        net.receive("TurnsSignal" .. name, function()
+            local data = net.readTable()
+            callback(data)
+        end)
     end
 
     net.receive("TurnsGameStarted", function()
