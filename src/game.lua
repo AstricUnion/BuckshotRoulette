@@ -263,6 +263,7 @@ if SERVER then
                 item:use()
             end
             if area == "shotgun" then
+                if turns.getData("gameStep") == STEP.Shotgun then return end
                 part:setData("state", STATE.WithShotgun)
                 turns.sendSignal("TakeShotgun", {participantId = part.sortedId})
             end
@@ -319,6 +320,12 @@ if SERVER then
         tryToStartNewSequence()
     end
 else
+    local enableCursor = false
+
+    input.__enableCursorOld = input.enableCursor
+    function input.enableCursor(state)
+        enableCursor = true
+    end
 
     local shotgunHolo = hologram.create(chip():getPos() + Vector(0, 0, 32), chip():getAngles() + Angle(0, 0, 90), "models/weapons/w_annabelle.mdl")
     if !shotgunHolo then return end
@@ -328,7 +335,7 @@ else
     turns.signal("MoveToSlot", function(data)
         items.inited[data.itemId]:moveToSlot(data.slot)
         local part = turns.getLocalPlayerParticipant()
-        if !(data.lastItem and part.sortedId == data.participantId) then return end
+        if !(part and data.lastItem and part.sortedId == data.participantId) then return end
         CAMERA.AtTable()
         interactive.enableGroup("slots", false)
         interactive.enable("box", false)
@@ -338,6 +345,7 @@ else
     -- Animation to take box
     turns.signal("TakeBox", function(data)
         local part = turns.getLocalPlayerParticipant()
+        if !part then return end
         local function animation()
             if !data.participants[part.sortedId] then return end
             CAMERA.AtBox()
@@ -358,7 +366,7 @@ else
     -- Animation to take shotgun
     turns.signal("TakeShotgun", function(data)
         local currentPart = turns.getLocalPlayerParticipant()
-        if currentPart.sortedId == data.participantId then
+        if currentPart and currentPart.sortedId == data.participantId then
             CAMERA.Default()
             interactive.enableGroup("players", true)
             interactive.enableGroup("slots", false)
@@ -372,7 +380,7 @@ else
 
     turns.signal("ShootAt", function(data)
         local currentPart = turns.getLocalPlayerParticipant()
-        if data.participantId == currentPart.sortedId then
+        if currentPart and data.participantId == currentPart.sortedId then
             CAMERA["AtPlayer" .. data.shootAt]()
             interactive.enableGroup("players", false)
         end
@@ -384,14 +392,16 @@ else
 
     local function changeTurn(turn)
         local part = turns.getLocalPlayerParticipant()
-        if turn == part then
-            CAMERA.AtTable()
-            interactive.enableGroup("slots", true)
-            interactive.enable("shotgun", true)
-            input.enableCursor(true)
-        else
-            local localId = turns.getParticipantLocalId(part, turn)
-            CAMERA["AtPlayer" .. localId]()
+        if part then
+            if turn == part then
+                CAMERA.AtTable()
+                interactive.enableGroup("slots", true)
+                interactive.enable("shotgun", true)
+                input.enableCursor(true)
+            else
+                local localId = turns.getParticipantLocalId(part, turn)
+                CAMERA["AtPlayer" .. localId]()
+            end
         end
         shotgunHolo:setPos(turn.ent:localToWorld(SHOTGUN.OnTable[1]))
         shotgunHolo:setAngles(turn.ent:localToWorldAngles(SHOTGUN.OnTable[2]))
@@ -417,6 +427,9 @@ else
     hook.add("PostDrawHUD", "deathEffect", function()
         local part = turns.getLocalPlayerParticipant()
         if !part then return end
+        if input.getCursorVisible() ~= enableCursor then
+            input.__enableCursorOld(enableCursor)
+        end
         local sw, sh = render.getGameResolution()
         if part:getData("state") == STATE.Death then
             render.setColor(Color(0, 0, 0))
