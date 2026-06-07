@@ -35,6 +35,10 @@ end
 items.register(Beer)
 
 
+---@type table<number, Avatar>
+local avatars = {}
+
+
 ---@enum STATE
 local STATE = {
     ---Player have no health on round
@@ -145,17 +149,29 @@ function turns.newParticipant(ply, part)
         enableHud(ply, true)
         return
     end
+    local avatar = Avatar:new(ply)
+    if avatar then
+        avatar.holo:setPos(part.ent:getPos())
+        avatar.holo:setAngles(part.ent:localToWorldAngles(Angle(0, 90, 0)))
+        avatar.holo:setParent(part.ent)
+        avatars[part.sortedId] = avatar
+    end
     if ply ~= player() then return end
     camera.setParent(part.ent)
     CAMERA.Default(1)
     camera.enable(true)
 end
 
-function turns.participantLeft(ply)
+function turns.participantLeft(ply, part)
     if SERVER then
         enableHud(ply, false)
         return
     end
+    local avatar = avatars[part.sortedId]
+    if avatar then
+        -- avatar:remove()
+    end
+    if ply ~= player() then return end
     camera.enable(false)
 end
 
@@ -373,8 +389,12 @@ else
             interactive.enable("shotgun", false)
         end
         local part = turns.participantsSorted[data.participantId]
-        shotgunHolo:setPos(part.ent:localToWorld(SHOTGUN.InHands[1]))
-        shotgunHolo:setAngles(part.ent:localToWorldAngles(SHOTGUN.InHands[2]))
+        -- shotgunHolo:setPos(part.ent:localToWorld(SHOTGUN.InHands[1]))
+        -- shotgunHolo:setAngles(part.ent:localToWorldAngles(SHOTGUN.InHands[2]))
+        local avatar = avatars[part.sortedId]
+        if avatar then
+            avatar:takeShotgun(shotgunHolo)
+        end
     end)
 
 

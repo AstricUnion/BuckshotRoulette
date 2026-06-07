@@ -11,8 +11,8 @@
 ---@include buckshot/src/game.lua
 ---@includedir buckshot/models
 
----@class tween
-avatars = require("buckshot/src/avatars.lua")
+---@class Avatar
+Avatar = require("buckshot/src/avatars.lua")
 
 ---@class model
 model = require("buckshot/libs/model/model.lua")

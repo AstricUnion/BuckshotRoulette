@@ -22,6 +22,11 @@ interactive.draw = false
 ---@param area string Area identifier
 function interactive.onInput(ply, area) end
 
+---[SHARED] Hook on area hover
+---@param ply Player Player hovered
+---@param area string Area identifier
+---@param state boolean
+function interactive.onHoverChanged(ply, area, state) end
 
 if CLIENT then
     ---[CLIENT] Add new interactive area. All coordinates is number from 0 to 1 (screen percentage)
