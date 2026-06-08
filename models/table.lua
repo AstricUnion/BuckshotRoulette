@@ -37,27 +37,21 @@ local function tablo(ang)
     end
 end
 
-local function body(ang)
-    return function()
-        local prt = part {
-            rig(Vector(0,0,0)),
-            holo {Vector(0, 0, 29), Angle(), "models/holograms/plane.mdl", Vector(6), color = Color(0, 120, 0), material = "models/gibs/metalgibs/metal_gibs"}
-        }
-        local tab = prt()
-        tab:setAngles(ang)
-        return tab
-    end
-end
 
+if CLIENT then
+    local mat = model.newMaterial("table", "VertexLitGeneric")
+    mat:setTextureURL("$basetexture", "https://raw.githubusercontent.com/AstricUnion/BuckshotRoulette/refs/heads/main/textures/table.png")
+    mat:setInt("$flags", 256)
+end
 
 local mdl = model.new("table", part {
     rig ( Vector(), Angle() ),
-    body(Angle(0,0,0)),
     tablo(Angle(0, 0, 0)),
     tablo(Angle(0, 90, 0)),
     tablo(Angle(0, -90, 0)),
     tablo(Angle(0, 180, 0))
 })
+    :add("surface", holo {Vector(0, 0, 29), Angle(), "models/holograms/plane.mdl", Vector(6), material = "table"})
 
 -- Для теста (раскомментировать, желательно закомментировать обратно перед коммитом)
 if SERVER then
