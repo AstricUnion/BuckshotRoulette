@@ -149,13 +149,13 @@ function turns.newParticipant(ply, part)
         enableHud(ply, true)
         return
     end
-    local avatar = Avatar:new(ply)
-    if avatar then
-        avatar.holo:setPos(part.ent:getPos())
-        avatar.holo:setAngles(part.ent:localToWorldAngles(Angle(0, 90, 0)))
-        avatar.holo:setParent(part.ent)
-        avatars[part.sortedId] = avatar
-    end
+    -- local avatar = Avatar:new(ply)
+    -- if avatar then
+    --     avatar.holo:setPos(part.ent:getPos())
+    --     avatar.holo:setAngles(part.ent:localToWorldAngles(Angle(0, 90, 0)))
+    --     avatar.holo:setParent(part.ent)
+    --     avatars[part.sortedId] = avatar
+    -- end
     if ply ~= player() then return end
     camera.setParent(part.ent)
     CAMERA.Default(1)
@@ -167,7 +167,7 @@ function turns.participantLeft(ply, part)
         enableHud(ply, false)
         return
     end
-    local avatar = avatars[part.sortedId]
+    -- local avatar = avatars[part.sortedId]
     if avatar then
         -- avatar:remove()
     end
