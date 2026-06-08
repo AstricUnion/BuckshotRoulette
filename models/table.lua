@@ -24,12 +24,12 @@ local function tablo(ang)
     return function()
         local prt = part {
             rig(Vector(0,0,0)),
-            holo {Vector(34.5, 0, 39.75), Angle(90, 0, 0), "models/props_c17/furnitureshelf001a.mdl", Vector(0.05, 0.27, 0.085), material = "models/gibs/metalgibs/metal_gibs"},
-            holo {Vector(34.5, 0, 39.75), Angle(90, 180, 0), "models/props_c17/furnitureshelf001a.mdl", Vector(0.05, 0.27, 0.085), material = "models/gibs/metalgibs/metal_gibs"},
-            holo {Vector(34.5, 0, 40.0), Angle(7, 0, 0), "models/xqm/panel1x1.mdl", Vector(0.225, 0.45, 1.0), material = "models/gibs/metalgibs/metal_gibs"},
-            holo {Vector(34.5, 0, 40.5), Angle(7, 0, 0), "models/xqm/panel1x1.mdl", Vector(0.215, 0.44, 0), color = Color(0, 0, 0), material = "models/gibs/metalgibs/metal_gibs"},
-            holo {Vector(47, 0, 41), Angle(0, 180, 0), "models/props_wasteland/prison_doortrack001a.mdl", Vector(0.7, 0.4, 0.4), material = "models/gibs/metalgibs/metal_gibs"},
-            holo {Vector(37, 37, 41), Angle(0, 225, 0), "models/props_wasteland/prison_doortrack001a.mdl", Vector(0.7, 0.216, 0.4), material = "models/gibs/metalgibs/metal_gibs"}
+            holo {Vector(24.5, 0, 28.75), Angle(90, 0, 0), "models/props_c17/furnitureshelf001a.mdl", Vector(0.05, 0.27, 0.075), material = "models/gibs/metalgibs/metal_gibs"},
+            holo {Vector(24.5, 0, 28.75), Angle(90, 180, 0), "models/props_c17/furnitureshelf001a.mdl", Vector(0.05, 0.27, 0.075), material = "models/gibs/metalgibs/metal_gibs"},
+            holo {Vector(24.5, 0, 29.0), Angle(7, 0, 0), "models/xqm/panel1x1.mdl", Vector(0.225, 0.45, 0.9), material = "models/gibs/metalgibs/metal_gibs"},
+            holo {Vector(24.5, 0, 29.5), Angle(7, 0, 0), "models/xqm/panel1x1.mdl", Vector(0.215, 0.44, 0), color = Color(0, 0, 0), material = "models/gibs/metalgibs/metal_gibs"},
+            holo {Vector(37, 0, 30), Angle(0, 180, 0), "models/props_wasteland/prison_doortrack001a.mdl", Vector(0.7, 0.226, 0.3), material = "models/gibs/metalgibs/metal_gibs"},
+            holo {Vector(26, 26, 30), Angle(0, 225, 0), "models/props_wasteland/prison_doortrack001a.mdl", Vector(0.7, 0.235, 0.3), material = "models/gibs/metalgibs/metal_gibs"}
         }
         local tab = prt()
         tab:setAngles(ang)
@@ -37,8 +37,22 @@ local function tablo(ang)
     end
 end
 
+local function body(ang)
+    return function()
+        local prt = part {
+            rig(Vector(0,0,0)),
+            holo {Vector(0, 0, 29), Angle(), "models/holograms/plane.mdl", Vector(6), color = Color(0, 120, 0), material = "models/gibs/metalgibs/metal_gibs"}
+        }
+        local tab = prt()
+        tab:setAngles(ang)
+        return tab
+    end
+end
+
+
 local mdl = model.new("table", part {
     rig ( Vector(), Angle() ),
+    body(Angle(0,0,0)),
     tablo(Angle(0, 0, 0)),
     tablo(Angle(0, 90, 0)),
     tablo(Angle(0, -90, 0)),
