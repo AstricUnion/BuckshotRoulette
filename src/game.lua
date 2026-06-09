@@ -71,33 +71,24 @@ local STEP = {
 
 ---@enum CAMERA
 local CAMERA = CLIENT and {
-    Default = camera.preset(Vector(0, 10, 60), Angle(10, 90, 0), 100),
+    Default = camera.preset(Vector(0, 5, 55), Angle(10, 90, 0), 90),
     AtTable = camera.preset(Vector(0, 12, 55), Angle(50, 90, 0), 90),
     AtScreen = camera.preset(Vector(0, 20, 40), Angle(60, 90, 0), 90),
     AtBox = camera.preset(Vector(0, 14, 52), Angle(55, 90, 0), 90),
     AtShotgun = camera.preset(Vector(0, 42, 48), Angle(60, 120, 0), 90),
 
-    AtPlayer0 = camera.preset(Vector(0, 10, 60), Angle(30, 90, 0), 90),
-    AtPlayer1 = camera.preset(Vector(0, 10, 60), Angle(10, 120, 0), 90),
-    AtPlayer2 = camera.preset(Vector(0, 10, 60), Angle(10, 90, 0), 90),
-    AtPlayer3 = camera.preset(Vector(0, 10, 60), Angle(10, 60, 0), 90),
+    AtPlayer0 = camera.preset(Vector(0, 10, 55), Angle(30, 90, 0), 80),
+    AtPlayer1 = camera.preset(Vector(0, 10, 55), Angle(10, 120, 0), 80),
+    AtPlayer2 = camera.preset(Vector(0, 10, 55), Angle(10, 90, 0), 80),
+    AtPlayer3 = camera.preset(Vector(0, 10, 55), Angle(10, 60, 0), 80),
 } or {}
 
----@enum SHOTGUN
-local SHOTGUN = CLIENT and {
-    InHands = {Vector(0, 24, 38), Angle(30, 0, 0)},
-    OnTable = {Vector(0, 50, 32), Angle(0, -90, 90)},
-    AtPlayer0 = {Vector(0, 30, 30), Angle(90, 90, 0)},
-    AtPlayer1 = {Vector(-18, 30, 45), Angle(10, -30, 0)},
-    AtPlayer2 = {Vector(10, 36, 45), Angle(10, -90, 0)},
-    AtPlayer3 = {Vector(18, 30, 45), Angle(10, -150, 0)},
-} or {}
 
 if SERVER then
-    local tableHolo = hologram.create(chip():getPos() + Vector(0, 0, 29), chip():getAngles(), "models/holograms/plane.mdl", Vector(6, 6, 6))
-    if !tableHolo then return end
-    tableHolo:setColor(Color(20, 125, 25))
-    tableHolo:setParent(chip())
+    -- local tableHolo = hologram.create(chip():getPos() + Vector(0, 0, 29), chip():getAngles(), "models/holograms/plane.mdl", Vector(6, 6, 6))
+    -- if !tableHolo then return end
+    -- tableHolo:setColor(Color(20, 125, 25))
+    -- tableHolo:setParent(chip())
 
     local initialData = {
         itemsToTook = {}, -- Items to pickup, server generates it
@@ -149,13 +140,13 @@ function turns.newParticipant(ply, part)
         enableHud(ply, true)
         return
     end
-    -- local avatar = Avatar:new(ply)
-    -- if avatar then
-    --     avatar.holo:setPos(part.ent:getPos())
-    --     avatar.holo:setAngles(part.ent:localToWorldAngles(Angle(0, 90, 0)))
-    --     avatar.holo:setParent(part.ent)
-    --     avatars[part.sortedId] = avatar
-    -- end
+    local avatar = Avatar:new(ply)
+    if avatar then
+        avatar.holo:setPos(part.ent:getPos())
+        avatar.holo:setAngles(part.ent:localToWorldAngles(Angle(0, 90, 0)))
+        avatar.holo:setParent(part.ent)
+        avatars[part.sortedId] = avatar
+    end
     if ply ~= player() then return end
     camera.setParent(part.ent)
     CAMERA.Default(1)
@@ -167,9 +158,9 @@ function turns.participantLeft(ply, part)
         enableHud(ply, false)
         return
     end
-    -- local avatar = avatars[part.sortedId]
+    local avatar = avatars[part.sortedId]
     if avatar then
-        -- avatar:remove()
+        avatar:remove()
     end
     if ply ~= player() then return end
     camera.enable(false)
@@ -291,10 +282,10 @@ if SERVER then
                 local target = turns.getLocalParticipant(part, partAdd)
                 if !target:getPlayer() then return end
                 local shells = turns.getData("shells")
-                turns.sendSignal("ShootAt", {participantId = part.sortedId, shootAt = partAdd})
+                turns.sendSignal("ShootPose", {participantId = part.sortedId, shootAt = partAdd})
                 local lastShell = table.remove(shells)
-                if lastShell then
-                    timer.simple(1, function()
+                timer.simple(1, function()
+                    if lastShell then
                         local health = target:getData("health") - 1
                         target:setData("state", STATE.Death)
                         target:setData("health", health)
@@ -303,8 +294,9 @@ if SERVER then
                                 target:setData("state", turns.getData("gameStep") == STEP.Items and STATE.Box or STATE.Idle)
                             end)
                         end
-                    end)
-                end
+                    end
+                    turns.sendSignal("ShootAt", {participantId = part.sortedId, target = target.sortedId, isDeath = lastShell})
+                end)
                 timer.simple(2, function()
                     if !lastShell and target == part then
                         turns.turnAgain()
@@ -343,7 +335,7 @@ else
         enableCursor = true
     end
 
-    local shotgunHolo = hologram.create(chip():getPos() + Vector(0, 0, 32), chip():getAngles() + Angle(0, 0, 90), "models/weapons/w_annabelle.mdl")
+    local shotgunHolo = hologram.create(chip():getPos() + Vector(0, 0, 36), chip():getAngles() + Angle(0, 0, 90), "models/weapons/w_annabelle.mdl")
     if !shotgunHolo then return end
     shotgunHolo:setParent(chip())
 
@@ -398,6 +390,23 @@ else
     end)
 
 
+    turns.signal("ShootPose", function(data)
+        local currentPart = turns.getLocalPlayerParticipant()
+        if currentPart and data.participantId == currentPart.sortedId then
+            CAMERA.Default()
+            interactive.enableGroup("players", false)
+        end
+        local part = turns.participantsSorted[data.participantId]
+        local avatar = avatars[part.sortedId]
+        if avatar then
+            if data.shootAt == 0 then
+                avatar:shootPoseSelf(shotgunHolo)
+            else
+                avatar:shootPose(shotgunHolo, data.shootAt - 2 * 45)
+            end
+        end
+    end)
+
     turns.signal("ShootAt", function(data)
         local currentPart = turns.getLocalPlayerParticipant()
         if currentPart and data.participantId == currentPart.sortedId then
@@ -405,9 +414,14 @@ else
             interactive.enableGroup("players", false)
         end
         local part = turns.participantsSorted[data.participantId]
-        local shotgun = SHOTGUN["AtPlayer" .. data.shootAt]
-        shotgunHolo:setPos(part.ent:localToWorld(shotgun[1]))
-        shotgunHolo:setAngles(part.ent:localToWorldAngles(shotgun[2]))
+        local avatar = avatars[part.sortedId]
+        if avatar then
+            if data.shootAt == 0 then
+                avatar:shootPoseSelf(shotgunHolo)
+            else
+                avatar:shootPose(shotgunHolo, data.shootAt - 2 * 45)
+            end
+        end
     end)
 
     local function changeTurn(turn)
@@ -423,8 +437,6 @@ else
                 CAMERA["AtPlayer" .. localId]()
             end
         end
-        shotgunHolo:setPos(turn.ent:localToWorld(SHOTGUN.OnTable[1]))
-        shotgunHolo:setAngles(turn.ent:localToWorldAngles(SHOTGUN.OnTable[2]))
     end
 
     function turns.dataChanged(old, new)
