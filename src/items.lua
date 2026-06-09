@@ -5,7 +5,7 @@ local items = {}
 items.registered = {}
 items.inited = {}
 
-local TABLEHEIGHT = 32.5
+local TABLEHEIGHT = 32
 ---Slots positions (by IDs, for player, relative to seat):
 ---1 3   7 5
 ---2 4   8 6
@@ -26,6 +26,7 @@ items.slotPositions = {
 ---@field Name string Pretty name of item, you can see this on hover on item slot
 ---@field Model string|fun() Model of item
 ---@field id number
+---@field animation number
 ---@field seat Vehicle
 ---@field model Entity [CLIENT] Client-side hologram. For view
 local Item = {}
@@ -106,8 +107,12 @@ else
                 if !isValid(ent) then goto cont end
                 local obj = setmetatable({ id = v.id, seat = ent }, self)
                 obj.model = obj:createModel()
-                obj.model:setPos(ent:localToWorld(Vector(0, 20, 36)))
+                obj.model:setPos(ent:localToWorld(Vector(0, 20, 32)))
                 obj.model:setParent(ent)
+                obj.animation = tween.start(tween.new {
+                    tween.param {0, 0.3, obj.model, tween.ParamProperties.LOCALPOS, nil, Vector(0, 20, 36), math.easeOutQuart},
+                    tween.param {0, 0.3, obj.model, tween.ParamProperties.LOCALANGLES, nil, Angle(30, 20, 0), math.easeOutQuart}
+                })
                 items.inited[v.id] = obj
                 newToInit[i] = nil
                 ::cont::
@@ -120,7 +125,11 @@ else
     ---@param id number Index of slot
     function Item:moveToSlot(id)
         local pos = items.slotPositions[id]
-        self.model:setPos(self.seat:localToWorld(pos))
+        if self.animation then tween.stop(self.animation) end
+        self.animation = tween.start(tween.new {
+            tween.param {0, 0.2, self.model, tween.ParamProperties.LOCALPOS, nil, pos, math.easeOutQuart},
+            tween.param {0, 0.2, self.model, tween.ParamProperties.LOCALANGLES, nil, Angle(), math.easeOutQuart}
+        })
     end
 
 
@@ -142,7 +151,6 @@ else
         setmetatable(item, nil)
         items.inited[id] = nil
     end)
-
 
     -- Use entity on client
     net.receive("BuckshotItemUse", function()

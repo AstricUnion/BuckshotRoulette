@@ -1,6 +1,9 @@
 ---@class items
 local items = items
 
+---@class model
+local model = model
+
 ---@class BuckshotRouletteInteractive: interactive
 local interactive = interactive
 
@@ -69,20 +72,6 @@ local STEP = {
     Gameplay = 2,
 }
 
----@enum CAMERA
-local CAMERA = CLIENT and {
-    Default = camera.preset(Vector(0, 5, 55), Angle(10, 90, 0), 90),
-    AtTable = camera.preset(Vector(0, 12, 55), Angle(50, 90, 0), 90),
-    AtScreen = camera.preset(Vector(0, 20, 40), Angle(60, 90, 0), 90),
-    AtBox = camera.preset(Vector(0, 14, 52), Angle(55, 90, 0), 90),
-    AtShotgun = camera.preset(Vector(0, 42, 48), Angle(60, 120, 0), 90),
-
-    AtPlayer0 = camera.preset(Vector(0, 10, 55), Angle(30, 90, 0), 80),
-    AtPlayer1 = camera.preset(Vector(0, 10, 55), Angle(10, 120, 0), 80),
-    AtPlayer2 = camera.preset(Vector(0, 10, 55), Angle(10, 90, 0), 80),
-    AtPlayer3 = camera.preset(Vector(0, 10, 55), Angle(10, 60, 0), 80),
-} or {}
-
 
 if SERVER then
     -- local tableHolo = hologram.create(chip():getPos() + Vector(0, 0, 29), chip():getAngles(), "models/holograms/plane.mdl", Vector(6, 6, 6))
@@ -147,10 +136,6 @@ function turns.newParticipant(ply, part)
         avatar.holo:setParent(part.ent)
         avatars[part.sortedId] = avatar
     end
-    if ply ~= player() then return end
-    camera.setParent(part.ent)
-    CAMERA.Default(1)
-    camera.enable(true)
 end
 
 function turns.participantLeft(ply, part)
@@ -162,8 +147,6 @@ function turns.participantLeft(ply, part)
     if avatar then
         avatar:remove()
     end
-    if ply ~= player() then return end
-    camera.enable(false)
 end
 
 function turns.gameStarted()
@@ -209,8 +192,10 @@ if SERVER then
                 return
             end
         end
-        turns.setData("gameStep", STEP.Shotgun)
-        timer.simple(2, function()
+        timer.simple(1.5, function()
+            turns.setData("gameStep", STEP.Shotgun)
+        end)
+        timer.simple(5, function()
             turns.setData("gameStep", STEP.Gameplay)
         end)
     end
@@ -335,16 +320,29 @@ else
         enableCursor = true
     end
 
-    local shotgunHolo = hologram.create(chip():getPos() + Vector(0, 0, 36), chip():getAngles() + Angle(0, 0, 90), "models/weapons/w_annabelle.mdl")
+
+    local shotgunHolo = model.create("shotgun")
+    local shotgunAnim
     if !shotgunHolo then return end
+    shotgunHolo:setPos(chip():getPos() + Vector(0, 0, 35))
     shotgunHolo:setParent(chip())
+
+    local function turnShotgun(angle)
+        if shotgunAnim then tween.stop(shotgunAnim) end
+        shotgunAnim = tween.start(tween.new {
+            tween.param {0, 0.4, shotgunHolo, tween.ParamProperties.LOCALANGLES, nil, Angle(0, angle - 90, 0), math.easeInOutSine }
+        })
+    end
 
     -- Visually move item to slot
     turns.signal("MoveToSlot", function(data)
         items.inited[data.itemId]:moveToSlot(data.slot)
         local part = turns.getLocalPlayerParticipant()
         if !(part and data.lastItem and part.sortedId == data.participantId) then return end
-        CAMERA.AtTable()
+        local avatar = avatars[part.sortedId]
+        if avatar then
+            avatar:removeBox()
+        end
         interactive.enableGroup("slots", false)
         interactive.enable("box", false)
         input.enableCursor(false)
@@ -355,8 +353,11 @@ else
         local part = turns.getLocalPlayerParticipant()
         if !part then return end
         local function animation()
+            local avatar = avatars[part.sortedId]
+            if avatar then
+                avatar:atBox()
+            end
             if !data.participants[part.sortedId] then return end
-            CAMERA.AtBox()
             interactive.enableGroup("slots", true)
             interactive.enable("box", true)
             -- todo: hook to enable cursor persistent
@@ -375,14 +376,11 @@ else
     turns.signal("TakeShotgun", function(data)
         local currentPart = turns.getLocalPlayerParticipant()
         if currentPart and currentPart.sortedId == data.participantId then
-            CAMERA.Default()
             interactive.enableGroup("players", true)
             interactive.enableGroup("slots", false)
             interactive.enable("shotgun", false)
         end
         local part = turns.participantsSorted[data.participantId]
-        -- shotgunHolo:setPos(part.ent:localToWorld(SHOTGUN.InHands[1]))
-        -- shotgunHolo:setAngles(part.ent:localToWorldAngles(SHOTGUN.InHands[2]))
         local avatar = avatars[part.sortedId]
         if avatar then
             avatar:takeShotgun(shotgunHolo)
@@ -393,7 +391,6 @@ else
     turns.signal("ShootPose", function(data)
         local currentPart = turns.getLocalPlayerParticipant()
         if currentPart and data.participantId == currentPart.sortedId then
-            CAMERA.Default()
             interactive.enableGroup("players", false)
         end
         local part = turns.participantsSorted[data.participantId]
@@ -407,41 +404,49 @@ else
         end
     end)
 
-    turns.signal("ShootAt", function(data)
-        local currentPart = turns.getLocalPlayerParticipant()
-        if currentPart and data.participantId == currentPart.sortedId then
-            CAMERA["AtPlayer" .. data.shootAt]()
-            interactive.enableGroup("players", false)
-        end
-        local part = turns.participantsSorted[data.participantId]
-        local avatar = avatars[part.sortedId]
-        if avatar then
-            if data.shootAt == 0 then
-                avatar:shootPoseSelf(shotgunHolo)
-            else
-                avatar:shootPose(shotgunHolo, data.shootAt - 2 * 45)
-            end
-        end
-    end)
+    -- turns.signal("ShootAt", function(data)
+    --     local currentPart = turns.getLocalPlayerParticipant()
+    --     if currentPart and data.participantId == currentPart.sortedId then
+    --         CAMERA["AtPlayer" .. data.shootAt]()
+    --         interactive.enableGroup("players", false)
+    --     end
+    --     local part = turns.participantsSorted[data.participantId]
+    --     local avatar = avatars[part.sortedId]
+    --     if avatar then
+    --         if data.shootAt == 0 then
+    --             avatar:shootPoseSelf(shotgunHolo)
+    --         else
+    --             avatar:shootPose(shotgunHolo, data.shootAt - 2 * 45)
+    --         end
+    --     end
+    -- end)
 
     local function changeTurn(turn)
+        turnShotgun(turn.ent:getLocalAngles().y)
         local part = turns.getLocalPlayerParticipant()
-        if part then
-            if turn == part then
-                CAMERA.AtTable()
-                interactive.enableGroup("slots", true)
-                interactive.enable("shotgun", true)
-                input.enableCursor(true)
-            else
+        if !part then return end
+        local avatar = avatars[part.sortedId]
+        if turn == part then
+            interactive.enableGroup("slots", true)
+            interactive.enable("shotgun", true)
+            input.enableCursor(true)
+            if avatar then
+                avatar:turn()
+            end
+        else
+            if avatar then
                 local localId = turns.getParticipantLocalId(part, turn)
-                CAMERA["AtPlayer" .. localId]()
+                avatar["atPlayer" .. localId](true)
             end
         end
     end
 
     function turns.dataChanged(old, new)
         if old.gameStep == STEP.Items and new.gameStep == STEP.Shotgun then
-            CAMERA.AtShotgun()
+            local part = turns.getLocalPlayerParticipant()
+            if !part then return end
+            local avatar = avatars[part.sortedId]
+            avatar:atShotgun()
             return
         end
         if old.gameStep == STEP.Shotgun and new.gameStep == STEP.Gameplay then

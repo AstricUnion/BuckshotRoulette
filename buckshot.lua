@@ -11,22 +11,22 @@
 ---@include buckshot/src/game.lua
 ---@includedir buckshot/models
 
----@class Avatar
-Avatar = require("buckshot/src/avatars.lua")
-
----@class model
-model = require("buckshot/libs/model/model.lua")
-
 ---@class tween
 tween = require("buckshot/libs/tween/tweens.lua")
 
-dodir("buckshot/models", {})
+---@class model
+model = require("buckshot/libs/model/model.lua")
 
 ---@class turns
 turns = require("buckshot/libs/turns.lua")
 
 ---@class camera
 camera = require("buckshot/libs/camera.lua")
+
+---@class Avatar
+Avatar = require("buckshot/src/avatars.lua")
+
+dodir("buckshot/models", {})
 
 ---@class items
 items = require("buckshot/src/items.lua")
