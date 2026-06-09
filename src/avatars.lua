@@ -38,6 +38,7 @@ if SERVER then return end
 ---Avatar class. With it we can made animations for players at table
 ---@class Avatar
 ---@field holo Hologram Holo of player
+---@field ply Player Player linked to this avatar
 ---@field bones table<AvatarBone, ParamProperties> Holo of player
 ---@field animation number?
 local Avatar = {}
@@ -57,7 +58,7 @@ function Avatar:new(ply)
         holo:setBodygroup(v.id, bg)
     end
     holo:setSkin(ply:getSkin())
-    local obj = setmetatable({holo = holo}, Avatar)
+    local obj = setmetatable({holo = holo, ply = ply}, Avatar)
     local bones = {}
     for i=0, holo:getBoneCount() do
         local name = holo:getBoneName(i)
@@ -147,12 +148,6 @@ function Avatar:idleAnimation()
     self.animation = tween.start(anim, true)
 end
 
-local function getEase(easeIn, easeOut)
-    return function(process)
-        return math.easeInOut(process, easeIn, easeOut)
-    end
-end
-
 local function mergeShotgun(startAt, endAt, holo, shotgun, boneId)
     return function(process)
         if process < startAt then return end
@@ -169,34 +164,40 @@ end
 function Avatar:takeShotgun(shotgun)
     if self.animation then tween.stop(self.animation) end
 
-    local headPos, headAngles = self:getBone("Head1")
-    local _, rightUpperarmAngles = self:getBone("R_UpperArm")
-    local _, rightForearmAngles = self:getBone("R_Forearm")
-    local _, rightHandAngles, rightHandId = self:getBone("R_Hand")
-    local _, leftUpperarmAngles = self:getBone("L_UpperArm")
-    local _, leftForearmAngles = self:getBone("L_Forearm")
-    local _, leftHandAngles = self:getBone("L_Hand")
-    local _, spine2Angles = self:getBone("Spine2")
-    local _, spineAngles = self:getBone("Spine")
+    local anim
+    if self.ply ~= player() then
+        local _, headAngles = self:getBone("Head1")
+        local _, rightUpperarmAngles = self:getBone("R_UpperArm")
+        local _, rightForearmAngles = self:getBone("R_Forearm")
+        local _, spine2Angles = self:getBone("Spine2")
 
-    local anim = tween.new({
-        -- Take shotgun
-        param {0, 0.2, self.holo, headAngles, nil, Angle(0, -40, 0), math.easeInQuart},
-        param {0.2, 0.5, self.holo, headAngles, nil, Angle(0, 20, -10), math.easeOutBack},
+        anim = tween.new({
+            -- Take shotgun
+            param {0, 0.2, self.holo, headAngles, nil, Angle(0, -40, 0), math.easeInQuart},
+            param {0.2, 0.5, self.holo, headAngles, nil, Angle(0, 20, -10), math.easeOutBack},
 
-        param {0, 0.2, self.holo, spine2Angles, nil, Angle(0, -5, -5), math.easeInQuart},
-        param {0.2, 0.5, self.holo, spine2Angles, nil, Angle(0, 30, 20), math.easeOutCubic},
+            param {0, 0.2, self.holo, spine2Angles, nil, Angle(0, -5, -5), math.easeInQuart},
+            param {0.2, 0.5, self.holo, spine2Angles, nil, Angle(0, 30, 20), math.easeOutCubic},
 
-        param {0.1, 0.5, self.holo, rightUpperarmAngles, nil, Angle(30, -120, 0), math.easeOutBack},
-        param {0.1, 0.4, self.holo, rightForearmAngles, nil, Angle(0, -60, -60), math.easeOutSine},
-        param {0.3, 0.5, self.holo, rightForearmAngles, nil, Angle(0, 0, -60), math.easeOutBack},
-    })
+            param {0.1, 0.5, self.holo, rightUpperarmAngles, nil, Angle(30, -120, 0), math.easeOutBack},
+            param {0.1, 0.4, self.holo, rightForearmAngles, nil, Angle(0, -60, -60), math.easeOutSine},
+            param {0.3, 0.5, self.holo, rightForearmAngles, nil, Angle(0, 0, -60), math.easeOutBack},
+        })
+    else
+        local seatAngs = self.holo:getAngles()
+        local seatNormal = seatAngs:getForward()
+        anim = tween.new({
+            -- Take shotgun
+            param {0, 0.4, shotgun, tween.ParamProperties.POS, nil, shotgun:getPos() - seatNormal * 5, math.easeInOutQuart},
+            -- param {0.4, 0.8, shotgun, tween.ParamProperties.LOCALPOS, nil, Vector(0, 0, 34) - seatNormal, math.easeInOutQuart},
+        })
+    end
     local id = tween.start(anim)
     self.animation = id
-    timer.simple(0.5, function()
-        if self.animation ~= id then return end
-        self:shotgunToHands(shotgun)
-    end)
+    -- timer.simple(0.5, function()
+    --     if self.animation ~= id then return end
+    --     self:shotgunToHands(shotgun)
+    -- end)
 end
 
 
@@ -409,7 +410,7 @@ function Avatar:atPlayer3()
     })
 end
 
-
+--
 -- local test = Avatar:new(owner())
 -- if !test then return end
 -- test.holo:setPos(chip():getPos() + Vector(50, 0, 0))
@@ -421,23 +422,17 @@ end
 --
 -- timer.simple(1, function()
 --     test:takeShotgun(shotgunHolo)
---     timer.simple(0.5, function()
---         test:shotgunToHands(shotgunHolo)
---     end)
 -- end)
 --
 -- timer.simple(2.5, function()
 --     test:shootPoseSelf(shotgunHolo)
 -- end)
--- --
 -- timer.simple(4, function()
 --     test:shotgunToHands(shotgunHolo)
 -- end)
--- --
 -- timer.simple(4.5, function()
 --     test:shotgunReload(shotgunHolo)
 -- end)
--- --
 -- timer.simple(5.5, function()
 --     test:dropShotgun(shotgunHolo)
 --     timer.simple(1, function()

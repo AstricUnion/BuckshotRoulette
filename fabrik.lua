@@ -1,9 +1,9 @@
 -- Test for FABRIK alghorithm
-if SERVER then return end
+if CLIENT then return end
 
 local CHIPPOS = chip():getPos()
-local NODEDIST = 20
-local NODENUM = 3
+local NODEDIST = 30
+local NODENUM = 5
 local tol = 0.1
 
 local p = {}
@@ -27,13 +27,10 @@ for i=1, NODENUM do
 end
 p[1]:setParent(chip())
 
-local bone = hologram.create(CHIPPOS + Vector(0, 0, allDist), Angle(), "models/props_junk/popcan01a.mdl")
-local pos = bone:getPos()
-local ang = 0
+local bone = prop.create(CHIPPOS + Vector(0, 0, allDist), Angle(), "models/props_junk/popcan01a.mdl", true)
 
 hook.add("Think", "", function()
-    ang = ang + 1
-    local t = pos + Vector(math.sin(math.rad(ang)) * 16, 0, math.cos(math.rad(ang)) * 16)
+    local t = bone:getPos()
     local dist = p[1]:getPos():getDistance(t)
     if dist > allDist then
         for i=1, #p-1 do
