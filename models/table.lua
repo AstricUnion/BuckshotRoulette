@@ -8,7 +8,6 @@
     * Указывайте уточнения в комментариях
 --]]
 
-
 ---@class model
 local model = model
 local hitbox = model.hitbox
@@ -180,7 +179,6 @@ local mdl = model.new("table", part {
     tablo(Angle(0, 180, 0))
 })
     :add("surface", holo {Vector(0, 0, 29), Angle(), "models/holograms/plane.mdl", Vector(6.25), material = "table"})
-
 
 -- Для теста (раскомментировать, желательно закомментировать обратно перед коммитом)
 if SERVER then
