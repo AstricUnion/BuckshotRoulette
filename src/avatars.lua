@@ -3,6 +3,16 @@
 
 if SERVER then return end
 
+local enableCursor = false
+
+input.__enableCursorOld = input.enableCursor
+function input.enableCursor(state)
+    enableCursor = true
+end
+
+---@class avatar
+local avatar = {}
+
 ---@class tween
 local tween = tween
 local param = tween.param
@@ -44,7 +54,7 @@ local cameraProperties = {
     },
     ANGLES = {
         set = function(_, toSet) camera.setAngles(toSet) end,
-        get = function(_) return camera.getAngles() end
+        get = function(_) return camera.getAngles() end,
     },
     FOV = {
         set = function(_, toSet) camera.setFOV(toSet) end,
@@ -63,19 +73,22 @@ local CAMERA = {
     AtPlayer0 = camera.preset(Vector(10, 0, 55), Angle(30, 0, 0), 80),
     AtPlayer1 = camera.preset(Vector(10, 0, 55), Angle(10, 30, 0), 80),
     AtPlayer2 = camera.preset(Vector(10, 0, 55), Angle(10, 0, 0), 80),
-    AtPlayer3 = camera.preset(Vector(10, 0, 55), Angle(10, -30, 0), 80),
+    AtPlayer3 = camera.preset(Vector(10, 0, 55), Angle(10, -30, 0), 80)
 }
 
 ---Avatar class. With it we can made animations for players at table
 ---@class Avatar
----@field holo Hologram Holo of player
----@field cam Hologram Camera pinpoint
+---@field holo Entity Holo of player
+---@field cam Entity Camera pinpoint
 ---@field ply Player Player linked to this avatar
+---@field contrast number Camera contrast of this avatar
+---@field color number Camera color of this avatar
 ---@field bones table<AvatarBone, ParamProperties> Holo of player
 ---@field animation number?
 local Avatar = {}
 Avatar.__index = Avatar
 
+local mat = material.load("models/screenspace")
 
 ---[CLIENT] Create new avatar of player
 ---@param ply Player
@@ -98,7 +111,12 @@ function Avatar:new(ply)
         holo:setBodygroup(v.id, bg)
     end
     holo:setSkin(ply:getSkin())
-    local obj = setmetatable({holo = holo, ply = ply}, Avatar)
+    local obj = setmetatable({
+        holo = holo,
+        ply = ply,
+        contrast = 1,
+        color = 1
+    }, Avatar)
     -- Cache bones and parameters for tweens
     local bones = {}
     for i=0, holo:getBoneCount() do
@@ -107,6 +125,30 @@ function Avatar:new(ply)
         bones[prettyName] = {obj:getForBone(name)}
     end
     self.bones = bones
+
+    hook.add("PreDrawHUD", "ScreenEffect", function()
+        if input.getCursorVisible() ~= enableCursor then
+            input.__enableCursorOld(enableCursor)
+        end
+        local sw, sh = render.getGameResolution()
+        render.setMaterialEffectColorModify(mat, {
+            colour = obj.color,
+            addr = 0,
+            addg = 0,
+            addb = 0,
+            contrast = obj.contrast,
+            brightness = 0,
+            mulr = 0,
+            mulg = 0,
+            mulb = 0
+        })
+        render.drawTexturedRect(0, 0, sw, sh)
+
+        render.setFont("Trebuchet18")
+        for i, v in ipairs(turns.getActiveParticipants()) do
+            render.drawSimpleText(sw - 32, sh - (i * 18), string.format("%s: %s", v:getPlayer():getName(), v:getData("health")), TEXT_ALIGN.RIGHT, TEXT_ALIGN.BOTTOM)
+        end
+    end)
     -- By default start idle animation
     obj:idleAnimation()
     return obj
@@ -194,7 +236,7 @@ end
 
 
 ---[CLIENT] Start animation on player box
-function Avatar:atBox()
+function Avatar:takeBox()
     if self.ply == Ply then
         CAMERA.AtBox()
     end
@@ -228,7 +270,7 @@ local function mergeShotgun(startAt, endAt, holo, shotgun, boneId)
         if process > endAt then return true end
         local mat = holo:getBoneMatrix(boneId)
         if !mat then return end
-        local pos, ang = localToWorld(Vector(12, 0, -5), Angle(210, 0, 90), mat:getTranslation(), mat:getAngles())
+        local pos, ang = localToWorld(Vector(12, 0, -5), Angle(210, 0, -90), mat:getTranslation(), mat:getAngles())
         shotgun:setPos(pos)
         shotgun:setAngles(ang)
     end
@@ -254,11 +296,44 @@ function Avatar:localToHolo()
         get = function(ent)
             local _, ang = worldToLocal(ent:getPos(), ent:getAngles(), self.holo:getPos(), self.holo:getAngles())
             return ang
-        end
+        end,
+        diff = tween.ParamProperties.ANGLES.diff
     }
 end
 
----@param shotgun Hologram Shotgun holo
+
+---[CLIENT] Get shotgun to hands tween
+---@return tweenfun
+function Avatar:shotgunToHands(shotgun, startAt)
+    startAt = startAt or 0
+    local _, headAngles = self:getBone("Head1")
+    local _, rightUpperarmAngles = self:getBone("R_UpperArm")
+    local _, rightForearmAngles = self:getBone("R_Forearm")
+    local _, rightHandAngles, rightHandId = self:getBone("R_Hand")
+    local _, leftUpperarmAngles = self:getBone("L_UpperArm")
+    local _, leftForearmAngles = self:getBone("L_Forearm")
+    local _, leftHandAngles = self:getBone("L_Hand")
+    local _, spine2Angles = self:getBone("Spine2")
+    local _, spineAngles = self:getBone("Spine")
+    local anim = tween.new({
+        mergeShotgun(0, 0.4, self.holo, shotgun, rightHandId),
+        param {0, 0.4, self.holo, headAngles, nil, Angle(0, 0, 0), math.easeOutBack},
+        param {0, 0.4, self.holo, spine2Angles, nil, Angle(0, 0, 0), math.easeInOutSine},
+        param {0, 0.4, self.holo, spineAngles, nil, Angle(0, 70, 0), math.easeInOutSine},
+        param {0, 0.4, self.holo, rightUpperarmAngles, nil, Angle(10, -30, -60), math.easeOutQuart},
+        param {0, 0.4, self.holo, rightForearmAngles, nil, Angle(20, -110, 30), math.easeOutBack},
+        param {0, 0.4, self.holo, rightHandAngles, nil, Angle(-10, -40, 0), math.easeInOutQuart},
+        param {0, 0.4, self.holo, leftUpperarmAngles, nil, Angle(20, 30, 0), math.easeInOutQuart},
+        param {0, 0.4, self.holo, leftForearmAngles, nil, Angle(0, -130, 30), math.easeInOutQuart},
+        param {0, 0.4, self.holo, leftHandAngles, nil, Angle(-10, -30, -120), math.easeInOutQuart},
+    })
+
+    return function(process)
+        return anim(process - startAt)
+    end
+end
+
+---@param shotgun Entity Shotgun holo
 function Avatar:takeShotgun(shotgun)
     if self.animation then tween.stop(self.animation) end
 
@@ -280,14 +355,8 @@ function Avatar:takeShotgun(shotgun)
             param {0.1, 0.5, self.holo, rightUpperarmAngles, nil, Angle(30, -120, 0), math.easeOutBack},
             param {0.1, 0.4, self.holo, rightForearmAngles, nil, Angle(0, -60, -60), math.easeOutSine},
             param {0.3, 0.5, self.holo, rightForearmAngles, nil, Angle(0, 0, -60), math.easeOutBack},
+            self:shotgunToHands(shotgun, 0.5)
         })
-        local id = tween.start(anim)
-        self.animation = id
-        -- Start animation for shotgun transition to hands
-        timer.simple(0.5, function()
-            if self.animation ~= id then return end
-            self:shotgunToHands(shotgun)
-        end)
     else
         local pos, angs = self:localToHolo()
         anim = tween.new({
@@ -296,148 +365,20 @@ function Avatar:takeShotgun(shotgun)
             param {0, 0.4, nil, cameraProperties.FOV, nil, 89, math.easeInCubic},
 
             param {0.4, 1, shotgun, pos, nil, Vector(24, 0, 37), math.easeInOutQuart},
-            param {0.4, 1, shotgun, angs, nil, Angle(20, 270, -90), math.easeInOutQuart},
+            param {0.4, 1, shotgun, angs, nil, Angle(20, -90, -90), math.easeInOutQuart},
             param {0.4, 1, nil, cameraProperties.POS, nil, Vector(5, 0, 55), math.easeOutCubic},
             param {0.4, 1, nil, cameraProperties.ANGLES, nil, Angle(10, 0, 0), math.easeOutCubic},
-            param {0.4, 0.8, nil, cameraProperties.FOV, nil, 90, math.easeOutCubic},
-        })
-        self.animation = tween.start(anim)
-    end
-end
-
-
-function Avatar:shotgunToHands(shotgun)
-    if self.animation then tween.stop(self.animation) end
-
-    local headPos, headAngles = self:getBone("Head1")
-    local _, rightUpperarmAngles = self:getBone("R_UpperArm")
-    local _, rightForearmAngles = self:getBone("R_Forearm")
-    local _, rightHandAngles, rightHandId = self:getBone("R_Hand")
-    local _, leftUpperarmAngles = self:getBone("L_UpperArm")
-    local _, leftForearmAngles = self:getBone("L_Forearm")
-    local _, leftHandAngles = self:getBone("L_Hand")
-    local _, spine2Angles = self:getBone("Spine2")
-    local _, spineAngles = self:getBone("Spine")
-    local anim = tween.new({
-        mergeShotgun(0, 0.8, self.holo, shotgun, rightHandId),
-        param {0, 0.4, self.holo, headAngles, nil, Angle(0, 0, 0), math.easeOutBack},
-        param {0, 0.4, self.holo, spine2Angles, nil, Angle(0, 0, 0), math.easeInOutSine},
-        param {0, 0.4, self.holo, spineAngles, nil, Angle(0, 70, 0), math.easeInOutSine},
-        param {0, 0.4, self.holo, rightUpperarmAngles, nil, Angle(10, -30, -60), math.easeOutQuart},
-        param {0, 0.4, self.holo, rightForearmAngles, nil, Angle(20, -110, 30), math.easeOutBack},
-        param {0, 0.4, self.holo, rightHandAngles, nil, Angle(-10, -40, 0), math.easeInOutQuart},
-        param {0, 0.4, self.holo, leftUpperarmAngles, nil, Angle(20, 30, 0), math.easeInOutQuart},
-        param {0, 0.4, self.holo, leftForearmAngles, nil, Angle(0, -130, 30), math.easeInOutQuart},
-        param {0, 0.4, self.holo, leftHandAngles, nil, Angle(-10, -30, -120), math.easeInOutQuart},
-    })
-    self.animation = tween.start(anim)
-end
-
-
-function Avatar:shotgunReload(shotgun)
-    if self.animation then tween.stop(self.animation) end
-
-    local _, headAngles = self:getBone("Head1")
-    local _, rightUpperarmAngles = self:getBone("R_UpperArm")
-    local _, rightForearmAngles = self:getBone("R_Forearm")
-    local _, rightHandAngles, rightHandId = self:getBone("R_Hand")
-    local _, leftUpperarmAngles = self:getBone("L_UpperArm")
-    local _, leftForearmAngles = self:getBone("L_Forearm")
-    local _, leftHandAngles = self:getBone("L_Hand")
-    local _, spine2Angles = self:getBone("Spine2")
-    local _, spineAngles = self:getBone("Spine")
-
-    local anim
-    if self.ply ~= Ply then
-        anim = tween.new({
-            param {0, 0.4, self.holo, headAngles, nil, Angle(5, 0, 0), math.easeOutBack},
-            param {0, 0.4, self.holo, spine2Angles, nil, Angle(3, 0, 0), math.easeInOutSine},
-            param {0, 0.4, self.holo, spineAngles, nil, Angle(0, 70, 0), math.easeInOutSine},
-            param {0, 0.4, self.holo, rightUpperarmAngles, nil, Angle(30, -20, -60), math.easeInQuart},
-            param {0, 0.4, self.holo, rightForearmAngles, nil, Angle(30, -130, 30), math.easeInQuart},
-            param {0, 0.4, self.holo, rightHandAngles, nil, Angle(-10, -40, 0), math.easeInQuart},
-            param {0, 0.4, self.holo, leftUpperarmAngles, nil, Angle(20, -20, 0), math.easeInQuart},
-            param {0, 0.4, self.holo, leftForearmAngles, nil, Angle(20, -130, 30), math.easeInQuart},
-            param {0, 0.4, self.holo, leftHandAngles, nil, Angle(-10, -60, -120), math.easeInQuart},
-
-            param {0.4, 0.8, self.holo, headAngles, nil, Angle(0, 0, 0), math.easeOutBack},
-            param {0.4, 0.8, self.holo, spine2Angles, nil, Angle(0, 0, 0), math.easeOutQuart},
-            param {0.4, 0.8, self.holo, rightUpperarmAngles, nil, Angle(10, -30, -60), math.easeOutQuart},
-            param {0.4, 0.8, self.holo, rightForearmAngles, nil, Angle(20, -110, 30), math.easeOutQuart},
-            param {0.4, 0.8, self.holo, rightHandAngles, nil, Angle(-10, -40, 0), math.easeOutQuart},
-            param {0.4, 0.8, self.holo, leftUpperarmAngles, nil, Angle(20, 30, 0), math.easeOutQuart},
-            param {0.4, 0.8, self.holo, leftForearmAngles, nil, Angle(0, -130, 30), math.easeOutQuart},
-            param {0.4, 0.8, self.holo, leftHandAngles, nil, Angle(-10, -30, -120), math.easeOutQuart},
-
-            mergeShotgun(0, 0.8, self.holo, shotgun, rightHandId),
-        })
-    else
-        local pos, angs = self:localToHolo()
-        anim = tween.new({
-            param {0, 0.8, shotgun, angs, nil, Angle(20, -90, 0), math.easeInOutQuart},
-            param {0, 0.8, shotgun, pos, nil, Vector(24, 0, 37), math.easeInOutQuart},
+            param {0.4, 0.8, nil, cameraProperties.FOV, nil, 100, math.easeOutCubic},
         })
     end
     self.animation = tween.start(anim)
 end
 
 
-function Avatar:shootPose(shotgun, ang)
-    if self.animation then tween.stop(self.animation) end
-
-    local headPos, headAngles = self:getBone("Head1")
-    local _, rightUpperarmAngles = self:getBone("R_UpperArm")
-    local _, rightForearmAngles = self:getBone("R_Forearm")
-    local _, rightHandAngles, rightHandId = self:getBone("R_Hand")
-    local _, leftUpperarmAngles = self:getBone("L_UpperArm")
-    local _, leftForearmAngles = self:getBone("L_Forearm")
-    local _, leftHandAngles = self:getBone("L_Hand")
-    local _, spine2Angles = self:getBone("Spine2")
-    local _, spineAngles = self:getBone("Spine")
-
-    local anim = tween.new({
-        param {0, 0.4, self.holo, headAngles, nil, Angle(0, 0, 15), math.easeOutQuart},
-        param {0, 0.4, self.holo, rightUpperarmAngles, nil, Angle(-10, -50, -10), math.easeOutQuart},
-        param {0, 0.4, self.holo, rightForearmAngles, nil, Angle(0, -100, 30), math.easeOutQuart},
-        param {0, 0.4, self.holo, rightHandAngles, nil, Angle(-60, 20, 0), math.easeOutBack},
-        param {0, 0.4, self.holo, leftUpperarmAngles, nil, Angle(8, -90, -30), math.easeOutQuart},
-        param {0, 0.4, self.holo, leftForearmAngles, nil, Angle(10, -10, 30), math.easeOutQuart},
-        param {0, 0.4, self.holo, leftHandAngles, nil, Angle(0, -30, -120), math.easeInOutBack},
-        param {0, 0.4, self.holo, spine2Angles, nil, Angle(0, 0, (1/3 * ang) - 15), math.easeOutBack},
-        param {0, 0.4, self.holo, spineAngles, nil, Angle(0, 70, (2/3 * ang)), math.easeOutBack},
-        mergeShotgun(0, 0.5, self.holo, shotgun, rightHandId),
-    })
-    self.animation = tween.start(anim)
-end
-
-function Avatar:shootAtPlayer(shotgun, ang)
-    if self.animation then tween.stop(self.animation) end
-
-    local _, headAngles = self:getBone("Head1")
-    local _, rightForearmAngles = self:getBone("R_Forearm")
-    local _, rightHandAngles, rightHandId = self:getBone("R_Hand")
-    local _, spine2Angles = self:getBone("Spine2")
-    local _, spineAngles = self:getBone("Spine")
-
-    local anim = tween.new({
-        param {0, 0.05, self.holo, headAngles, nil, Angle(0, -20, 15), math.easeOutQuart},
-        param {0, 0.05, self.holo, spine2Angles, nil, Angle(0, -10, (1/3 * ang) - 15), math.easeOutBack},
-        param {0.05, 0.6, self.holo, headAngles, nil, Angle(0, 0, 15), math.easeOutQuart},
-        param {0.05, 0.6, self.holo, spine2Angles, nil, Angle(0, 0, (1/3 * ang) - 15), math.easeOutBack},
-        param {0, 0.2, self.holo, spineAngles, nil, Angle(0, 70, (2/3 * ang)), math.easeOutBack},
-
-        param {0, 0.05, self.holo, rightForearmAngles, nil, Angle(0, -80, 30), math.easeOutQuart},
-        param {0.05, 0.6, self.holo, rightForearmAngles, nil, Angle(0, -100, 30), math.easeOutQuart},
-        param {0, 0.05, self.holo, rightHandAngles, nil, Angle(-30, 20, 0), math.easeOutBack},
-        param {0.05, 0.6, self.holo, rightHandAngles, nil, Angle(-60, 20, 0), math.easeOutBack},
-        mergeShotgun(0, 0.6, self.holo, shotgun, rightHandId)
-    })
-    self.animation = tween.start(anim)
-end
-
-function Avatar:shootPoseSelf(shotgun)
-    if self.animation then tween.stop(self.animation) end
-
+---[CLIENT] Get reload tween
+---@return tweenfun
+function Avatar:shotgunReload(shotgun, startAt)
+    startAt = startAt or 0
     local anim
     if self.ply ~= Ply then
         local _, headAngles = self:getBone("Head1")
@@ -450,26 +391,173 @@ function Avatar:shootPoseSelf(shotgun)
         local _, spine2Angles = self:getBone("Spine2")
         local _, spineAngles = self:getBone("Spine")
         anim = tween.new({
-            mergeShotgun(0, 0.4, self.holo, shotgun, rightHandId),
-            param {0, 0.4, self.holo, headAngles, nil, Angle(0, 15, 0), math.easeOutBack},
-            param {0, 0.4, self.holo, spine2Angles, nil, Angle(0, -20, 0), math.easeInOutSine},
-            param {0, 0.4, self.holo, spineAngles, nil, Angle(0, 70, 0), math.easeInOutSine},
-            param {0, 0.4, self.holo, rightUpperarmAngles, nil, Angle(-40, -40, 0), math.easeOutQuart},
-            param {0, 0.4, self.holo, rightForearmAngles, nil, Angle(-10, -5, 0), math.easeOutBack},
-            param {0, 0.4, self.holo, rightHandAngles, nil, Angle(130, 5, 0), math.easeInOutQuart},
-            param {0, 0.4, self.holo, leftUpperarmAngles, nil, Angle(0, -30, 60), math.easeInOutQuart},
-            param {0, 0.4, self.holo, leftForearmAngles, nil, Angle(-20, -120, 0), math.easeInOutQuart},
-            param {0, 0.4, self.holo, leftHandAngles, nil, Angle(-10, -10, 0), math.easeInOutQuart},
+            self:shotgunToHands(shotgun),
+            param {0.4, 0.8, self.holo, headAngles, nil, Angle(5, 0, 0), math.easeOutBack},
+            param {0.4, 0.8, self.holo, spine2Angles, nil, Angle(3, 0, 0), math.easeInOutSine},
+            param {0.4, 0.8, self.holo, spineAngles, nil, Angle(0, 70, 0), math.easeInOutSine},
+            param {0.4, 0.8, self.holo, rightUpperarmAngles, nil, Angle(30, -20, -60), math.easeInQuart},
+            param {0.4, 0.8, self.holo, rightForearmAngles, nil, Angle(30, -130, 30), math.easeInQuart},
+            param {0.4, 0.8, self.holo, rightHandAngles, nil, Angle(-10, -40, 0), math.easeInQuart},
+            param {0.4, 0.8, self.holo, leftUpperarmAngles, nil, Angle(20, -20, 0), math.easeInQuart},
+            param {0.4, 0.8, self.holo, leftForearmAngles, nil, Angle(20, -130, 30), math.easeInQuart},
+            param {0.4, 0.8, self.holo, leftHandAngles, nil, Angle(-10, -60, -120), math.easeInQuart},
+
+            param {0.8, 1.2, self.holo, headAngles, nil, Angle(0, 0, 0), math.easeOutBack},
+            param {0.8, 1.2, self.holo, spine2Angles, nil, Angle(0, 0, 0), math.easeOutQuart},
+            param {0.8, 1.2, self.holo, rightUpperarmAngles, nil, Angle(10, -30, -60), math.easeOutQuart},
+            param {0.8, 1.2, self.holo, rightForearmAngles, nil, Angle(20, -110, 30), math.easeOutQuart},
+            param {0.8, 1.2, self.holo, rightHandAngles, nil, Angle(-10, -40, 0), math.easeOutQuart},
+            param {0.8, 1.2, self.holo, leftUpperarmAngles, nil, Angle(20, 30, 0), math.easeOutQuart},
+            param {0.8, 1.2, self.holo, leftForearmAngles, nil, Angle(0, -130, 30), math.easeOutQuart},
+            param {0.8, 1.2, self.holo, leftHandAngles, nil, Angle(-10, -30, -120), math.easeOutQuart},
+
+            mergeShotgun(0, 1.2, self.holo, shotgun, rightHandId),
         })
     else
         local pos, angs = self:localToHolo()
         anim = tween.new({
-            param {0, 0.4, shotgun, pos, nil, Vector(10, 0, 32), math.easeInOutQuart},
-            param {0, 0.4, shotgun, angs, nil, Angle(85, 0, -90), math.easeInOutQuart},
-            param {0, 0.4, nil, cameraProperties.POS, nil, Vector(4, 0, 55), math.easeInCubic},
-            param {0, 0.4, nil, cameraProperties.ANGLES, nil, Angle(50, 0, 1), math.easeInCubic},
-            param {0, 0.4, nil, cameraProperties.FOV, nil, 87, math.easeInCubic},
+            -- shotgun
+            param {0, 0.7, shotgun, pos, nil, Vector(24, 0, 37), math.easeInOutCubic},
+            param {0, 0.7, shotgun, angs, nil, Angle(20, -90, -90), math.easeInOutCubic},
+
+            param {0.7, 0.9, shotgun, pos, nil, Vector(25, -5, 37), math.easeInBack},
+            param {0.7, 0.9, shotgun, angs, nil, Angle(10, -88, -90), math.easeInBack},
+
+            param {0.9, 1.2, shotgun, pos, nil, Vector(24, 0, 37), math.easeOutCubic},
+            param {0.9, 1.2, shotgun, angs, nil, Angle(20, -90, -90), math.easeOutCubic},
+
+            -- camera
+            param {0, 1.2, nil, cameraProperties.POS, nil, Vector(10, 0, 55), math.easeInOutCubic},
+
+            param {0, 0.7, nil, cameraProperties.ANGLES, nil, Angle(10, 0, 0), math.easeInOutCubic},
+            param {0, 0.7, nil, cameraProperties.FOV, nil, 100, math.easeInOutCubic},
+
+            param {0.7, 1.2, nil, cameraProperties.ANGLES, nil, Angle(50, 0, 0), math.easeInOutCubic},
+            param {0.7, 1.2, nil, cameraProperties.FOV, nil, 90, math.easeInOutCubic},
         })
+    end
+
+    return function(process)
+        return anim(process - startAt)
+    end
+end
+
+function Avatar:shootPose(shotgun, localId)
+    if self.animation then tween.stop(self.animation) end
+
+    local ang = (localId - 2) * 45
+    local anim
+    if self.ply ~= Ply then
+        local _, headAngles = self:getBone("Head1")
+        local _, rightUpperarmAngles = self:getBone("R_UpperArm")
+        local _, rightForearmAngles = self:getBone("R_Forearm")
+        local _, rightHandAngles, rightHandId = self:getBone("R_Hand")
+        local _, leftUpperarmAngles = self:getBone("L_UpperArm")
+        local _, leftForearmAngles = self:getBone("L_Forearm")
+        local _, leftHandAngles = self:getBone("L_Hand")
+        local _, spine2Angles = self:getBone("Spine2")
+        local _, spineAngles = self:getBone("Spine")
+
+        anim = localId ~= 0 and tween.new {
+            param {0, 0.4, self.holo, headAngles, nil, Angle(0, 0, 15), math.easeOutQuart},
+            param {0, 0.4, self.holo, rightUpperarmAngles, nil, Angle(-10, -50, -10), math.easeOutQuart},
+            param {0, 0.4, self.holo, rightForearmAngles, nil, Angle(0, -100, 30), math.easeOutQuart},
+            param {0, 0.4, self.holo, rightHandAngles, nil, Angle(-60, 20, 0), math.easeOutBack},
+            param {0, 0.4, self.holo, leftUpperarmAngles, nil, Angle(8, -90, -30), math.easeOutQuart},
+            param {0, 0.4, self.holo, leftForearmAngles, nil, Angle(10, -10, 30), math.easeOutQuart},
+            param {0, 0.4, self.holo, leftHandAngles, nil, Angle(0, -30, -120), math.easeInOutBack},
+            param {0, 0.4, self.holo, spine2Angles, nil, Angle(0, 0, (1/3 * -ang) - 15), math.easeOutBack},
+            param {0, 0.4, self.holo, spineAngles, nil, Angle(0, 70, (2/3 * -ang)), math.easeOutBack},
+            mergeShotgun(0, 0.5, self.holo, shotgun, rightHandId),
+        } or tween.new({
+            mergeShotgun(0, 0.6, self.holo, shotgun, rightHandId),
+            param {0, 0.6, self.holo, headAngles, nil, Angle(0, 15, 0), math.easeOutBack},
+            param {0, 0.6, self.holo, spine2Angles, nil, Angle(0, -20, 0), math.easeInOutSine},
+            param {0, 0.6, self.holo, spineAngles, nil, Angle(0, 70, 0), math.easeInOutSine},
+            param {0, 0.6, self.holo, rightUpperarmAngles, nil, Angle(-40, -40, 0), math.easeOutQuart},
+            param {0, 0.6, self.holo, rightForearmAngles, nil, Angle(-10, -5, 0), math.easeOutBack},
+            param {0, 0.6, self.holo, rightHandAngles, nil, Angle(130, 5, 0), math.easeInOutQuart},
+            param {0, 0.6, self.holo, leftUpperarmAngles, nil, Angle(0, -30, 60), math.easeInOutQuart},
+            param {0, 0.6, self.holo, leftForearmAngles, nil, Angle(-20, -120, 0), math.easeInOutQuart},
+            param {0, 0.6, self.holo, leftHandAngles, nil, Angle(-10, -10, 0), math.easeInOutQuart},
+        })
+    else
+        local pos, angs = self:localToHolo()
+        local shotgunAng = Angle(0, math.normalizeAngle(180 - ang), -90)
+        local camAngs = Angle(10, -ang, 0)
+        anim = localId ~= 0 and tween.new {
+            param {0, 0.4, shotgun, pos, nil, Vector(24, 0, 34), math.easeInQuart},
+            param {0, 0.4, shotgun, angs, nil, Angle(50, -90, -90), math.easeInQuart},
+
+            param {0.4, 0.8, shotgun, pos, nil, Vector(24, 0, 40) + Vector(-10, 4, 0):getRotated(shotgunAng), math.easeOutQuart},
+            param {0.4, 0.8, shotgun, angs, nil, shotgunAng, math.easeOutQuart},
+            param {0, 0.6, nil, cameraProperties.POS, nil, Vector(5, 0, 55) + Vector(5, 0, 0):getRotated(camAngs), math.easeOutCubic},
+            param {0, 0.6, nil, cameraProperties.ANGLES, nil, camAngs, math.easeOutCubic},
+            param {0, 0.8, nil, cameraProperties.FOV, nil, 102},
+        } or tween.new({
+            param {0, 0.6, shotgun, pos, nil, Vector(10, 0, 32), math.easeInOutQuart},
+            param {0, 0.6, shotgun, angs, nil, Angle(85, 0, -90), math.easeInOutQuart},
+            param {0, 0.6, nil, cameraProperties.POS, nil, Vector(4, 0, 55), math.easeInOutCubic},
+            param {0, 0.6, nil, cameraProperties.ANGLES, nil, Angle(50, 0, 1), math.easeInOutCubic},
+            param {0, 0.6, nil, cameraProperties.FOV, nil, 87, math.easeInOutCubic},
+        })
+    end
+    self.animation = tween.start(anim)
+end
+
+
+function Avatar:shootAtPlayer(shotgun, localId, isDeath)
+    if self.animation then tween.stop(self.animation) end
+
+    local ang = (localId - 2) * 45
+    local reload = self:shotgunReload(shotgun, 0.8)
+    local anim
+    if isDeath then
+        if self.ply ~= Ply then
+            local _, headAngles = self:getBone("Head1")
+            local _, rightForearmAngles = self:getBone("R_Forearm")
+            local _, rightHandAngles, rightHandId = self:getBone("R_Hand")
+            local _, spine2Angles = self:getBone("Spine2")
+            local _, spineAngles = self:getBone("Spine")
+
+            anim = tween.new({
+                param {0, 0.05, self.holo, headAngles, nil, Angle(0, -20, 15), math.easeOutQuart},
+                param {0, 0.05, self.holo, spine2Angles, nil, Angle(0, -10, (1/3 * ang) - 15), math.easeOutBack},
+                param {0.05, 0.8, self.holo, headAngles, nil, Angle(0, 0, 15), math.easeOutQuart},
+                param {0.05, 0.8, self.holo, spine2Angles, nil, Angle(0, 0, (1/3 * ang) - 15), math.easeOutBack},
+                param {0, 0.2, self.holo, spineAngles, nil, Angle(0, 70, (2/3 * ang)), math.easeOutBack},
+
+                param {0, 0.05, self.holo, rightForearmAngles, nil, Angle(0, -80, 30), math.easeOutQuart},
+                param {0.05, 0.8, self.holo, rightForearmAngles, nil, Angle(0, -100, 30), math.easeOutQuart},
+                param {0, 0.05, self.holo, rightHandAngles, nil, Angle(-30, 20, 0), math.easeOutBack},
+                param {0.05, 0.8, self.holo, rightHandAngles, nil, Angle(-60, 20, 0), math.easeOutBack},
+                mergeShotgun(0, 0.8, self.holo, shotgun, rightHandId),
+                reload
+            })
+        else
+            local pos, angs = self:localToHolo()
+            local shotgunAng = Angle(0, math.normalizeAngle(180 - ang), -90)
+            local camPos = cameraProperties.POS.get()
+            anim = tween.new {
+                param {0, 0.05, shotgun, pos, nil, Vector(24, 0, 48) + Vector(-2, 4, 0):getRotated(shotgunAng), math.easeOutQuart},
+                param {0, 0.05, shotgun, angs, nil, Angle(shotgunAng.p + 40, shotgunAng.y, shotgunAng.r), math.easeOutQuart},
+
+                param {0.05, 0.8, shotgun, pos, nil, Vector(24, 0, 40) + Vector(-10, 4, 0):getRotated(shotgunAng), math.easeOutBack},
+                param {0.05, 0.8, shotgun, angs, nil, Angle(shotgunAng.p, shotgunAng.y, shotgunAng.r), math.easeOutBack},
+
+                function(process)
+                    if process > 0.6 then
+                        cameraProperties.POS.set(nil, camPos)
+                        return true
+                    end
+                    local frac = process / 0.6
+                    cameraProperties.POS.set(nil, camPos + (Vector(1) - Vector(math.random(), math.random(), math.random()) * 2) * (1 - frac) * 3)
+                end,
+                reload
+            }
+        end
+    else
+        anim = reload
     end
     self.animation = tween.start(anim)
 end
@@ -478,36 +566,74 @@ end
 function Avatar:dropShotgun(shotgun)
     if self.animation then tween.stop(self.animation) end
 
-    local headAngles = self:getBone("Head1")
-    local _, rightUpperarmAngles = self:getBone("R_UpperArm")
-    local _, rightForearmAngles = self:getBone("R_Forearm")
-    local _, rightHandAngles, rightHandId = self:getBone("R_Hand")
-    local _, leftUpperarmAngles = self:getBone("L_UpperArm")
-    local _, leftForearmAngles = self:getBone("L_Forearm")
-    local _, leftHandAngles = self:getBone("L_Hand")
-    local _, spine2Angles = self:getBone("Spine2")
+    local anim
+    local holoAngles = self.holo:getAngles()
+    if self.ply ~= Ply then
+        local _, headAngles = self:getBone("Head1")
+        local _, rightUpperarmAngles = self:getBone("R_UpperArm")
+        local _, rightForearmAngles = self:getBone("R_Forearm")
+        local _, rightHandAngles, rightHandId = self:getBone("R_Hand")
+        local _, leftUpperarmAngles = self:getBone("L_UpperArm")
+        local _, leftForearmAngles = self:getBone("L_Forearm")
+        local _, leftHandAngles = self:getBone("L_Hand")
+        local _, spine2Angles = self:getBone("Spine2")
+        anim = tween.new({
+            param {0, 0.5, self.holo, headAngles, nil, Angle(0, 20, 0), math.easeInOutBack},
+            param {0, 0.5, self.holo, spine2Angles, nil, Angle(0, 20, 0), math.easeInOutBack},
+            param {0, 0.5, self.holo, rightUpperarmAngles, nil, Angle(20, -120, 0), math.easeInOutBack},
+            param {0, 0.5, self.holo, rightForearmAngles, nil, Angle(0, 0, 0), math.easeInOutBack},
+            param {0, 0.5, self.holo, rightHandAngles, nil, Angle(0, 0, 0), math.easeInOutBack},
+            param {0, 0.5, self.holo, leftUpperarmAngles, nil, Angle(-20, -120, 0), math.easeInOutBack},
+            param {0, 0.5, self.holo, leftForearmAngles, nil, Angle(0, 0, 0), math.easeInOutBack},
+            param {0, 0.5, self.holo, leftHandAngles, nil, Angle(0, 0, 0), math.easeInOutBack},
+
+            param {0.5, 0.9, self.holo, headAngles, nil, Angle(0, 0, 0), math.easeOutBack},
+            param {0.5, 0.9, self.holo, spine2Angles, nil, Angle(0, 10, 0), math.easeOutBack},
+            param {0.5, 0.9, self.holo, rightUpperarmAngles, nil, Angle(-20, -11, 0), math.easeOutBack},
+            param {0.5, 0.9, self.holo, rightForearmAngles, nil, Angle(0, -85, 50), math.easeOutBack},
+            param {0.5, 0.9, self.holo, leftUpperarmAngles, nil, Angle(20, -11, 0), math.easeOutBack},
+            param {0.5, 0.9, self.holo, leftForearmAngles, nil, Angle(0, -85, 50), math.easeOutBack},
+            param {0.4, 0.6, shotgun, tween.ParamProperties.LOCALPOS, nil, Vector(0, 0, 35), math.easeOutCubic},
+            param {0.4, 0.6, shotgun, tween.ParamProperties.LOCALANGLES, nil, Angle(0, -180, 0) + holoAngles, math.easeOutCubic},
+            mergeShotgun(0, 0.4, self.holo, shotgun, rightHandId),
+        })
+    else
+        local pos, angs = self:localToHolo()
+        anim = tween.new({
+            param {0, 0.4, shotgun, pos, nil, Vector(22, 0, 37), math.easeOutCubic},
+            param {0, 0.4, shotgun, angs, nil, Angle(20, -90, -80), math.easeOutCubic},
+            param {0.4, 0.6, shotgun, tween.ParamProperties.LOCALPOS, nil, Vector(0, 0, 35), math.easeInOutCubic},
+            param {0.4, 0.6, shotgun, tween.ParamProperties.LOCALANGLES, nil, Angle(0, -180, 0) + holoAngles, math.easeInOutQuart},
+        })
+    end
+    self.animation = tween.start(anim)
+end
+
+function Avatar:death(shotgun)
+    if self.animation then tween.stop(self.animation) end
     local holoAngles = self.holo:getAngles()
     local anim = tween.new({
-        param {0, 0.5, self.holo, headAngles, nil, Angle(0, 20, 0), math.easeInOutBack},
-        param {0, 0.5, self.holo, spine2Angles, nil, Angle(0, 20, 0), math.easeInOutBack},
-        param {0, 0.5, self.holo, rightUpperarmAngles, nil, Angle(20, -120, 0), math.easeInOutBack},
-        param {0, 0.5, self.holo, rightForearmAngles, nil, Angle(0, 0, 0), math.easeInOutBack},
-        param {0, 0.5, self.holo, rightHandAngles, nil, Angle(0, 0, 0), math.easeInOutBack},
-        param {0, 0.5, self.holo, leftUpperarmAngles, nil, Angle(-20, -120, 0), math.easeInOutBack},
-        param {0, 0.5, self.holo, leftForearmAngles, nil, Angle(0, 0, 0), math.easeInOutBack},
-        param {0, 0.5, self.holo, leftHandAngles, nil, Angle(0, 0, 0), math.easeInOutBack},
-
-        param {0.5, 0.9, self.holo, headAngles, nil, Angle(0, 0, 0), math.easeOutBack},
-        param {0.5, 0.9, self.holo, spine2Angles, nil, Angle(0, 10, 0), math.easeOutBack},
-        param {0.5, 0.9, self.holo, rightUpperarmAngles, nil, Angle(-20, -11, 0), math.easeOutBack},
-        param {0.5, 0.9, self.holo, rightForearmAngles, nil, Angle(0, -85, 50), math.easeOutBack},
-        param {0.5, 0.9, self.holo, leftUpperarmAngles, nil, Angle(20, -11, 0), math.easeOutBack},
-        param {0.5, 0.9, self.holo, leftForearmAngles, nil, Angle(0, -85, 50), math.easeOutBack},
-        param {0.4, 0.6, shotgun, tween.ParamProperties.LOCALPOS, nil, Vector(0, 0, 36), math.easeOutCubic},
-        param {0.4, 0.6, shotgun, tween.ParamProperties.LOCALANGLES, nil, Angle(0, -180, 90) + holoAngles, math.easeOutCubic},
-        mergeShotgun(0, 0.4, self.holo, shotgun, rightHandId),
+        function()
+            self.holo:setColor(Color(255, 255, 255, 0))
+            return true
+        end,
+        shotgun and param {0, 0.4, shotgun, tween.ParamProperties.LOCALPOS, nil, Vector(0, 0, 35), math.easeInOutCubic} or nil,
+        shotgun and param {0, 0.4, shotgun, tween.ParamProperties.LOCALANGLES, nil, Angle(0, -180, 0) + holoAngles, math.easeInOutQuart} or nil,
     })
     self.animation = tween.start(anim)
+end
+
+
+local alphaProperty = {
+    set = function(x, toSet) x:setColor(x:getColor():setA(toSet)) end,
+    get = function(x) return x:getColor().a end
+}
+
+function Avatar:revive()
+    local anim = tween.new({
+        param {0, 1, self.holo, alphaProperty, 0, 255, math.easeOutSine},
+    })
+    tween.start(anim)
 end
 
 ---[CLIENT] Animation to look at player
@@ -517,13 +643,14 @@ function Avatar:lookAtPlayer(ang, cam)
     if !cam then
         local _, headAngles = self:getBone("Head1")
         tween.start(tween.new {
-            param {0, 0.3, self.holo, headAngles, nil, Angle(0, 0, ang), math.easeInOutCubic}
+            param {0, 0.3, self.holo, headAngles, nil, Angle(0, 0, ang), math.easeOutCubic}
         })
         return
     end
     tween.start(tween.new {
-        param {0, 0.3, nil, cameraProperties.ANGLES, nil, Angle(10, ang - (ang * 1/3), 0), math.easeInOutCubic},
-        param {0, 0.3, nil, cameraProperties.FOV, nil, 80, math.easeInOutCubic}
+        param {0, 0.6, nil, cameraProperties.POS, nil, Vector(5, 0, 55), math.easeOutSine},
+        param {0, 0.6, nil, cameraProperties.ANGLES, nil, Angle(10, ang - (ang * 1/3), 0), math.easeOutSine},
+        param {0, 0.6, nil, cameraProperties.FOV, nil, 88, math.easeOutSine}
     })
 end
 

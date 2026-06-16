@@ -167,18 +167,13 @@ if SERVER then
 
     -- Take boxes and start take items
     function turns.startItems()
-        local parts = {}
         for _, v in ipairs(turns.participantsSorted) do
             if v:getData("health") == 0 then goto cont end
             v:setData("state", STATE.Box)
             v:setData("itemsToTook", {"beer"})
-            parts[v.sortedId] = true
             ::cont::
         end
         turns.setData("gameStep", STEP.Items)
-        turns.sendSignal("TakeBox", {
-            participants = parts
-        })
     end
 
     -- Start new sequence of shells
@@ -255,7 +250,7 @@ if SERVER then
                 item:use()
             end
             if area == "shotgun" then
-                if turns.getData("gameStep") == STEP.Shotgun then return end
+                if turns.getData("gameStep") ~= STEP.Gameplay or turns.getTurn() ~= part then return end
                 part:setData("state", STATE.WithShotgun)
                 turns.sendSignal("TakeShotgun", {participantId = part.sortedId})
             end
@@ -277,22 +272,25 @@ if SERVER then
                         if health > 0 then
                             timer.simple(1, function()
                                 target:setData("state", turns.getData("gameStep") == STEP.Items and STATE.Box or STATE.Idle)
+                                turns.sendSignal("ReviveParticipant", {participantId = target.sortedId})
                             end)
                         end
                     end
-                    turns.sendSignal("ShootAt", {participantId = part.sortedId, target = target.sortedId, isDeath = lastShell})
+                    turns.sendSignal("ShootAt", {participantId = part.sortedId, shootAt = partAdd, isDeath = lastShell})
                 end)
                 timer.simple(2, function()
-                    if !lastShell and target == part then
-                        turns.turnAgain()
-                    else
-                        turns.nextTurn()
-                    end
-                    part:setData("shootAt", nil)
                     part:setData("state", STATE.Idle)
-                    if shells[#shells] == nil then
-                        turns.startItems()
-                    end
+                    timer.simple(2, function()
+                        if shells[#shells] == nil then
+                            turns.startItems()
+                            return
+                        end
+                        if !lastShell and target == part then
+                            turns.turnAgain()
+                        else
+                            turns.nextTurn()
+                        end
+                    end)
                 end)
                 turns.setData("shells", shells)
             end
@@ -313,14 +311,6 @@ if SERVER then
         tryToStartNewSequence()
     end
 else
-    local enableCursor = false
-
-    input.__enableCursorOld = input.enableCursor
-    function input.enableCursor(state)
-        enableCursor = true
-    end
-
-
     local shotgunHolo = model.create("shotgun")
     local shotgunAnim
     if !shotgunHolo then return end
@@ -334,7 +324,7 @@ else
         })
     end
 
-    -- Visually move item to slot
+    -- Move item to slot
     turns.signal("MoveToSlot", function(data)
         items.inited[data.itemId]:moveToSlot(data.slot)
         local part = turns.getLocalPlayerParticipant()
@@ -346,30 +336,6 @@ else
         interactive.enableGroup("slots", false)
         interactive.enable("box", false)
         input.enableCursor(false)
-    end)
-
-    -- Animation to take box
-    turns.signal("TakeBox", function(data)
-        local part = turns.getLocalPlayerParticipant()
-        if !part then return end
-        local function animation()
-            local avatar = avatars[part.sortedId]
-            if avatar then
-                avatar:atBox()
-            end
-            if !data.participants[part.sortedId] then return end
-            interactive.enableGroup("slots", true)
-            interactive.enable("box", true)
-            -- todo: hook to enable cursor persistent
-            input.enableCursor(true)
-        end
-        if part:getData("state") == STATE.Death then
-            timer.simple(2, function()
-                animation()
-            end)
-        else
-            animation()
-        end
     end)
 
     -- Animation to take shotgun
@@ -390,36 +356,43 @@ else
 
     turns.signal("ShootPose", function(data)
         local currentPart = turns.getLocalPlayerParticipant()
-        if currentPart and data.participantId == currentPart.sortedId then
-            interactive.enableGroup("players", false)
-        end
         local part = turns.participantsSorted[data.participantId]
+        if part == currentPart then
+            interactive.enableGroup("players", false)
+            input.enableCursor(false)
+        end
         local avatar = avatars[part.sortedId]
         if avatar then
-            if data.shootAt == 0 then
-                avatar:shootPoseSelf(shotgunHolo)
+            avatar:shootPose(shotgunHolo, data.shootAt)
+        end
+    end)
+
+    turns.signal("ShootAt", function(data)
+        local part = turns.participantsSorted[data.participantId]
+        local target = turns.getLocalParticipant(part, data.shootAt)
+        local avatar = avatars[part.sortedId]
+        local targetAvatar = avatars[target.sortedId]
+        if targetAvatar then
+            if data.shootAt == 0 and data.isDeath then
+                avatar:death(shotgunHolo)
             else
-                avatar:shootPose(shotgunHolo, data.shootAt - 2 * 45)
+                if data.isDeath then
+                    targetAvatar:death()
+                end
+                avatar:shootAtPlayer(shotgunHolo, data.shootAt, data.isDeath)
+                timer.simple(2, function()
+                    avatar:dropShotgun(shotgunHolo)
+                end)
             end
         end
     end)
 
-    -- turns.signal("ShootAt", function(data)
-    --     local currentPart = turns.getLocalPlayerParticipant()
-    --     if currentPart and data.participantId == currentPart.sortedId then
-    --         CAMERA["AtPlayer" .. data.shootAt]()
-    --         interactive.enableGroup("players", false)
-    --     end
-    --     local part = turns.participantsSorted[data.participantId]
-    --     local avatar = avatars[part.sortedId]
-    --     if avatar then
-    --         if data.shootAt == 0 then
-    --             avatar:shootPoseSelf(shotgunHolo)
-    --         else
-    --             avatar:shootPose(shotgunHolo, data.shootAt - 2 * 45)
-    --         end
-    --     end
-    -- end)
+    turns.signal("ReviveParticipant", function(data)
+        local avatar = avatars[data.participantId]
+        if avatar then
+            avatar:revive()
+        end
+    end)
 
     local function changeTurn(turn)
         turnShotgun(turn.ent:getLocalAngles().y)
@@ -436,7 +409,31 @@ else
         else
             if avatar then
                 local localId = turns.getParticipantLocalId(part, turn)
-                avatar["atPlayer" .. localId](true)
+                avatar["atPlayer" .. localId](avatar, true)
+            end
+        end
+    end
+
+    function turns.participantDataChanged(part, old, new, isLocal)
+        -- On box items
+        if old.state ~= STATE.Box and new.state == STATE.Box then
+            local function animation()
+                local avatar = avatars[part.sortedId]
+                if avatar then
+                    avatar:takeBox()
+                end
+                if isLocal then
+                    interactive.enableGroup("slots", true)
+                    interactive.enable("box", true)
+                    input.enableCursor(true)
+                end
+            end
+            if part:getData("state") == STATE.Death then
+                timer.simple(2, function()
+                    animation()
+                end)
+            else
+                animation()
             end
         end
     end
@@ -460,22 +457,4 @@ else
     function turns.turnChanged(old, new)
         changeTurn(new)
     end
-
-    hook.add("PostDrawHUD", "deathEffect", function()
-        local part = turns.getLocalPlayerParticipant()
-        if !part then return end
-        if input.getCursorVisible() ~= enableCursor then
-            input.__enableCursorOld(enableCursor)
-        end
-        local sw, sh = render.getGameResolution()
-        if part:getData("state") == STATE.Death then
-            render.setColor(Color(0, 0, 0))
-            render.drawRect(0, 0, sw, sh)
-        end
-
-        render.setFont("Trebuchet18")
-        for i, v in ipairs(turns.getActiveParticipants()) do
-            render.drawSimpleText(sw - 32, sh - (i * 18), string.format("%s: %s", v:getPlayer():getName(), v:getData("health")), TEXT_ALIGN.RIGHT, TEXT_ALIGN.BOTTOM)
-        end
-    end)
 end
