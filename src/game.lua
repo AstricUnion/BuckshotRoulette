@@ -88,9 +88,9 @@ if SERVER then
     }
     local chairDist = 50
     local chairModel = "models/nova/chair_wood01.mdl"
-    turns.addParticipant(Vector(chairDist, 0, 0), Angle(0, 90, 0), chairModel, initialData)
-    turns.addParticipant(Vector(0, -chairDist, 0), Angle(0, 0, 0), chairModel, initialData)
     turns.addParticipant(Vector(-chairDist, 0, 0), Angle(0, -90, 0), chairModel, initialData)
+    turns.addParticipant(Vector(0, -chairDist, 0), Angle(0, 0, 0), chairModel, initialData)
+    turns.addParticipant(Vector(chairDist, 0, 0), Angle(0, 90, 0), chairModel, initialData)
     turns.addParticipant(Vector(0, chairDist, 0), Angle(0, 180, 0), chairModel, initialData)
 
     turns.setData("gameStep", STEP.NoGame)
@@ -129,6 +129,7 @@ function turns.newParticipant(ply, part)
         enableHud(ply, true)
         return
     end
+    screen.new(part)
     local avatar = Avatar:new(ply)
     if avatar then
         avatar.holo:setPos(part.ent:getPos())
@@ -373,12 +374,10 @@ else
         local avatar = avatars[part.sortedId]
         local targetAvatar = avatars[target.sortedId]
         if targetAvatar then
-            if data.shootAt == 0 and data.isDeath then
-                avatar:death(shotgunHolo)
-            else
-                if data.isDeath then
-                    targetAvatar:death()
-                end
+            if data.isDeath then
+                targetAvatar:death(data.shootAt == 0 and shotgunHolo or nil)
+            end
+            if !(data.shootAt == 0 and data.isDeath) then
                 avatar:shootAtPlayer(shotgunHolo, data.shootAt, data.isDeath)
                 timer.simple(2, function()
                     avatar:dropShotgun(shotgunHolo)
@@ -395,10 +394,13 @@ else
     end)
 
     local function changeTurn(turn)
-        turnShotgun(turn.ent:getLocalAngles().y)
         local part = turns.getLocalPlayerParticipant()
         if !part then return end
+        local lastTurn = turns.getTurn()
         local avatar = avatars[part.sortedId]
+        if lastTurn ~= turn then
+            turnShotgun(turn.ent:getLocalAngles().y)
+        end
         if turn == part then
             interactive.enableGroup("slots", true)
             interactive.enable("shotgun", true)

@@ -9,6 +9,7 @@
 ---@include buckshot/src/interactive.lua
 ---@include buckshot/src/avatars.lua
 ---@include buckshot/src/game.lua
+---@include buckshot/src/screen.lua
 ---@includedir buckshot/models
 
 ---@class tween
@@ -33,6 +34,9 @@ items = require("buckshot/src/items.lua")
 
 ---@class interactive
 interactive = require("buckshot/src/interactive.lua")
+
+---@class screen
+screen = require("buckshot/src/screen.lua")
 
 
 require("buckshot/src/game.lua")

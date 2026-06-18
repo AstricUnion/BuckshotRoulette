@@ -88,7 +88,7 @@ local CAMERA = {
 local Avatar = {}
 Avatar.__index = Avatar
 
-local mat = material.load("models/screenspace")
+local screenspace = material.load("models/screenspace")
 
 ---[CLIENT] Create new avatar of player
 ---@param ply Player
@@ -126,29 +126,31 @@ function Avatar:new(ply)
     end
     self.bones = bones
 
-    hook.add("PreDrawHUD", "ScreenEffect", function()
-        if input.getCursorVisible() ~= enableCursor then
-            input.__enableCursorOld(enableCursor)
-        end
-        local sw, sh = render.getGameResolution()
-        render.setMaterialEffectColorModify(mat, {
-            colour = obj.color,
-            addr = 0,
-            addg = 0,
-            addb = 0,
-            contrast = obj.contrast,
-            brightness = 0,
-            mulr = 0,
-            mulg = 0,
-            mulb = 0
-        })
-        render.drawTexturedRect(0, 0, sw, sh)
+    if ply == Ply then
+        hook.add("PreDrawHUD", "ScreenEffect", function()
+            if input.getCursorVisible() ~= enableCursor then
+                input.__enableCursorOld(enableCursor)
+            end
+            local sw, sh = render.getGameResolution()
+            render.setMaterialEffectColorModify(screenspace, {
+                colour = obj.color,
+                addr = 0,
+                addg = 0,
+                addb = 0,
+                contrast = obj.contrast,
+                brightness = 0,
+                mulr = 0,
+                mulg = 0,
+                mulb = 0
+            })
+            render.drawTexturedRect(0, 0, sw, sh)
 
-        render.setFont("Trebuchet18")
-        for i, v in ipairs(turns.getActiveParticipants()) do
-            render.drawSimpleText(sw - 32, sh - (i * 18), string.format("%s: %s", v:getPlayer():getName(), v:getData("health")), TEXT_ALIGN.RIGHT, TEXT_ALIGN.BOTTOM)
-        end
-    end)
+            render.setFont("Trebuchet18")
+            for i, v in ipairs(turns.getActiveParticipants()) do
+                render.drawSimpleText(sw - 32, sh - (i * 18), string.format("%s: %s", v:getPlayer():getName(), v:getData("health")), TEXT_ALIGN.RIGHT, TEXT_ALIGN.BOTTOM)
+            end
+        end)
+    end
     -- By default start idle animation
     obj:idleAnimation()
     return obj
@@ -184,6 +186,21 @@ function Avatar:getForBone(bone)
         set = function(ent, toSet) ent:manipulateBoneAngles(boneId, toSet) end,
         get = function(ent) return ent:getManipulateBoneAngles(boneId) end
     }, boneId
+end
+
+
+---[CLIENT] Get tween parameters for camera parameters
+---@return ParamProperty contrast
+---@return ParamProperty color
+function Avatar:getForCamera()
+    return {
+        set = function(_, toSet) self.contrast = toSet end,
+        get = function(_) return self.contrast end
+    }, {
+        set = function(_, toSet) self.color = toSet end,
+        get = function(_) return self.color end
+    }
+
 end
 
 
@@ -594,7 +611,7 @@ function Avatar:dropShotgun(shotgun)
             param {0.5, 0.9, self.holo, leftUpperarmAngles, nil, Angle(20, -11, 0), math.easeOutBack},
             param {0.5, 0.9, self.holo, leftForearmAngles, nil, Angle(0, -85, 50), math.easeOutBack},
             param {0.4, 0.6, shotgun, tween.ParamProperties.LOCALPOS, nil, Vector(0, 0, 35), math.easeOutCubic},
-            param {0.4, 0.6, shotgun, tween.ParamProperties.LOCALANGLES, nil, Angle(0, -180, 0) + holoAngles, math.easeOutCubic},
+            param {0.4, 0.6, shotgun, tween.ParamProperties.LOCALANGLES, nil, Angle(0, 0, 0) + holoAngles, math.easeOutCubic},
             mergeShotgun(0, 0.4, self.holo, shotgun, rightHandId),
         })
     else
@@ -603,24 +620,24 @@ function Avatar:dropShotgun(shotgun)
             param {0, 0.4, shotgun, pos, nil, Vector(22, 0, 37), math.easeOutCubic},
             param {0, 0.4, shotgun, angs, nil, Angle(20, -90, -80), math.easeOutCubic},
             param {0.4, 0.6, shotgun, tween.ParamProperties.LOCALPOS, nil, Vector(0, 0, 35), math.easeInOutCubic},
-            param {0.4, 0.6, shotgun, tween.ParamProperties.LOCALANGLES, nil, Angle(0, -180, 0) + holoAngles, math.easeInOutQuart},
+            param {0.4, 0.6, shotgun, tween.ParamProperties.LOCALANGLES, nil, Angle(0, 0, 0) + holoAngles, math.easeInOutQuart},
         })
     end
     self.animation = tween.start(anim)
 end
 
 function Avatar:death(shotgun)
-    if self.animation then tween.stop(self.animation) end
     local holoAngles = self.holo:getAngles()
+    if self.ply == Ply then
+        self.contrast = 0
+    end
+    self.holo:setColor(Color(255, 255, 255, 0))
+    self:idleAnimation()
     local anim = tween.new({
-        function()
-            self.holo:setColor(Color(255, 255, 255, 0))
-            return true
-        end,
         shotgun and param {0, 0.4, shotgun, tween.ParamProperties.LOCALPOS, nil, Vector(0, 0, 35), math.easeInOutCubic} or nil,
         shotgun and param {0, 0.4, shotgun, tween.ParamProperties.LOCALANGLES, nil, Angle(0, -180, 0) + holoAngles, math.easeInOutQuart} or nil,
     })
-    self.animation = tween.start(anim)
+    tween.start(anim)
 end
 
 
@@ -630,8 +647,10 @@ local alphaProperty = {
 }
 
 function Avatar:revive()
+    local contrast, _ = self:getForCamera()
     local anim = tween.new({
         param {0, 1, self.holo, alphaProperty, 0, 255, math.easeOutSine},
+        self.ply == Ply and param {0, 1, nil, contrast, 1.5, 1, math.easeInSine} or nil,
     })
     tween.start(anim)
 end

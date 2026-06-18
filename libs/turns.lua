@@ -60,6 +60,7 @@ if SERVER then
     ---@param angs Angle Angles of chair
     ---@param model string Model of chair
     ---@param initialData table<string, any> Initial data for this participant
+    ---@return Participant obj Created object
     function turns.addParticipant(offset, angs, model, initialData)
         local ent = prop.createSeat(turns.ent:localToWorld(offset), turns.ent:localToWorldAngles(angs), model)
         ent:setParent(turns.ent)
@@ -71,6 +72,7 @@ if SERVER then
         net.send(find.allPlayers())
         turns.participants[entId] = obj
         turns.participantsSorted[sortedId] = obj
+        return obj
     end
 
     -- this code is 100% not from bmodentity lib
