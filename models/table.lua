@@ -64,10 +64,10 @@ local function tablo(ang)
             holo {Vector(19, 0, 29), Angle(0, 180, 0), "models/hunter/tubes/tube1x1x1c.mdl", Vector(0.05, 0.22, 0.05), material = materm},
             holo {Vector(20.8, 4.91, 29), Angle(0, 180, 0), "models/hunter/plates/plate.mdl", Vector(1.17, 0.2, 0.79), material = materm},
             holo {Vector(20.8, -4.91, 29), Angle(0, 180, 0), "models/hunter/plates/plate.mdl", Vector(1.17, 0.2, 0.79), material = materm},
-            holo {Vector(37.5, 15, 31), Angle(0, 0, 90), "models/holograms/cube.mdl", Vector(0.18, 0.5, 0.78), material = materm}, -- optimized
+            holo {Vector(37.8, 15, 31), Angle(0, 0, 90), "models/holograms/cube.mdl", Vector(0.2, 0.5, 0.78), material = materm}, -- optimized
             -- holo {Vector(38, 15, 31), Angle(0, 0, 90), "models/props_c17/furnitureshelf001a.mdl", Vector(0.1, 0.1, 0.109), material = materm},
             -- holo {Vector(38, 15, 31), Angle(0, 180, 90), "models/props_c17/furnitureshelf001a.mdl", Vector(0.1, 0.1, 0.109), material = materm},
-            holo {Vector(37, 15, 31.5), Angle(83, 180, 0), "models/xqm/panel1x1.mdl", Vector(0.19, 0.375, 1.2), material = materm},
+            holo {Vector(37, 15, 31.5), Angle(83, 180, 0), "models/xqm/panel1x1.mdl", Vector(0.16, 0.35, 1.2), material = materm},
             holo {Vector(27.3, 0, 29.2), Angle(90, 90, 0), "models/props_c17/furnitureshelf001a.mdl", Vector(0.025, 0.125, 0.109), material = materm},
             holo {Vector(27.3, 0, 29.2), Angle(90, -90, 0), "models/props_c17/furnitureshelf001a.mdl", Vector(0.025, 0.125, 0.109), material = materm},
             holo {Vector(27.15, 0, 29.5), Angle(7, 0, 0), "models/xqm/panel1x1.mdl", Vector(0.225, 0.35, 0.9), material = materm},
@@ -87,7 +87,6 @@ end
 local function screen(ang)
     ang = math.normalizeAngle(ang - 90)
     local mat = "LifeScreen" .. math.ceil(ang / 90) + 3
-    local clips = {{Vector(1, 0, 0), Vector(-1, 0, 0)}}
     return part {
         holo {
             Vector(28.7, 0, 30.0):getRotated(Angle(0, ang, 0)),
@@ -96,16 +95,19 @@ local function screen(ang)
             Vector(0.6, 0.6, 0.6),
             material = mat,
             noLight = true,
-            clips = clips
+            clips = {{Vector(1, 0, 0), Vector(-1, 0, 0)}}
         },
         holo {
-            Vector(36, 15, 30):getRotated(Angle(0, ang, 0)),
+            Vector(36, 15, 30.1):getRotated(Angle(0, ang, 0)),
             Angle(97, ang, 0),
             "models/holograms/plane.mdl",
             Vector(0.6, 0.6, 0.6),
             material = mat,
             noLight = true,
-            clips = clips
+            clips = {
+                {Vector(0, 0, 0), Vector(-1, 0, 0)},
+                {Vector(-5, 0, 0), Vector(1, 0, 0)}
+            }
         },
     }
 end
