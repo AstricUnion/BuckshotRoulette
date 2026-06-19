@@ -2,12 +2,17 @@
 
 if SERVER then return end
 
+local lighting = material.create("gmodscreenspace")
+lighting:setInt("$flags", 256)
+lighting:setTextureURL("$basetexture", "https://raw.githubusercontent.com/AstricUnion/BuckshotRoulette/refs/heads/main/textures/table.png")
+
 ---@class screen
 ---@field inited table<number, LifeScreen>
 ---@field font string
 local screen = {}
 screen.inited = {}
 screen.font = render.createFont("Arial", 72, 500, true, false, false, false, 0, false, 0)
+
 
 ---@class LifeScreen
 ---@field id number
@@ -29,11 +34,7 @@ end
 
 
 function LifeScreen:drawLighting(x, y)
-    render.drawPoly {
-        {x = x + 16, y = y},
-        {x = x, y = y + 48},
-        {x = x + 16, y = y + 48},
-    }
+    render.drawTexturedRect(x, y, 175, 305)
 end
 
 
