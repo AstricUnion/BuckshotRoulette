@@ -251,13 +251,22 @@ function turns.participantLeft(ply, participant) end
 ---@param participant Participant Participant
 function turns.participantTimedOut(participant) end
 
----[SHARED] Participant turn changed
+---[SHARED] Participant turn changed. Called after turnEnd and turnStart. Will not be called, if participant turns again
 ---@param oldTurn Participant
 ---@param newTurn Participant
 function turns.turnChanged(oldTurn, newTurn) end
 
 
 if SERVER then
+    ---[SERVER] Participant turn start
+    ---@param turn Participant
+    ---@return boolean? dontStart Don't start this turn
+    function turns.turnStart(turn) end
+
+    ---[SERVER] Participant turn end
+    ---@param turn Participant
+    function turns.turnEnd(turn) end
+
     ---[SERVER] When player became participant
     hook.add("PlayerEnteredVehicle", "TurnsParticipantEnter", function(ply, veh)
         local entId = veh:entIndex()
@@ -443,27 +452,21 @@ if SERVER then
             end
             local part = turns.participantsSorted[loopedIndex]
             if part:getPlayer() then
-                turns.turnChanged(turns.participantsSorted[turns.currentTurn], part)
+                local oldTurn = turns.participantsSorted[turns.currentTurn]
+                if turns.turnStart(part) then
+                    goto cont
+                end
+                turns.turnEnd(oldTurn)
+                turns.turnChanged(oldTurn, part)
                 turns.currentTurn = loopedIndex
                 net.start("TurnsTurnChanged")
                     net.writeUInt(loopedIndex, 8)
                 net.send(find.allPlayers())
                 return part
             end
+            ::cont::
         end
         turns.stop()
-    end
-
-    ---[SERVER] Turn again
-    function turns.turnAgain()
-        if !turns.isStarted then
-            throw("Game is not started!")
-            return
-        end
-        net.start("TurnsTurnChanged")
-            net.writeUInt(turns.currentTurn, 8)
-        net.send(find.allPlayers())
-        turns.turnChanged(turns.participantsSorted[turns.currentTurn], turns.participantsSorted[turns.currentTurn])
     end
 
 

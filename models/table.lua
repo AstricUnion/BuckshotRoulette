@@ -86,6 +86,7 @@ end
 
 local function screen(ang)
     ang = math.normalizeAngle(ang - 90)
+    ang = math.abs(ang) == 90 and -ang or ang
     local mat = "LifeScreen" .. math.ceil(ang / 90) + 3
     return part {
         holo {
@@ -99,7 +100,7 @@ local function screen(ang)
         },
         holo {
             Vector(36, 15, 30.1):getRotated(Angle(0, ang, 0)),
-            Angle(97, ang, 0),
+            Angle(83, 180 + ang, 0),
             "models/holograms/plane.mdl",
             Vector(0.6, 0.6, 0.6),
             material = mat,
@@ -107,7 +108,8 @@ local function screen(ang)
             clips = {
                 {Vector(0, 0, 0), Vector(-1, 0, 0)},
                 {Vector(-5, 0, 0), Vector(1, 0, 0)}
-            }
+            },
+            cullmode = 1
         },
     }
 end

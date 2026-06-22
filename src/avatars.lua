@@ -339,7 +339,7 @@ function Avatar:shotgunToHands(shotgun, startAt)
         param {0, 0.4, self.holo, spineAngles, nil, Angle(0, 70, 0), math.easeInOutSine},
         param {0, 0.4, self.holo, rightUpperarmAngles, nil, Angle(10, -30, -60), math.easeOutQuart},
         param {0, 0.4, self.holo, rightForearmAngles, nil, Angle(20, -110, 30), math.easeOutBack},
-        param {0, 0.4, self.holo, rightHandAngles, nil, Angle(-10, -40, 0), math.easeInOutQuart},
+        param {0, 0.4, self.holo, rightHandAngles, nil, Angle(-15, -40, 0), math.easeInOutQuart},
         param {0, 0.4, self.holo, leftUpperarmAngles, nil, Angle(20, 30, 0), math.easeInOutQuart},
         param {0, 0.4, self.holo, leftForearmAngles, nil, Angle(0, -130, 30), math.easeInOutQuart},
         param {0, 0.4, self.holo, leftHandAngles, nil, Angle(-10, -30, -120), math.easeInOutQuart},
@@ -462,7 +462,7 @@ end
 function Avatar:shootPose(shotgun, localId)
     if self.animation then tween.stop(self.animation) end
 
-    local ang = (localId - 2) * 45
+    local ang = (localId - 2) * -45
     local anim
     if self.ply ~= Ply then
         local _, headAngles = self:getBone("Head1")
@@ -485,7 +485,7 @@ function Avatar:shootPose(shotgun, localId)
             param {0, 0.4, self.holo, leftHandAngles, nil, Angle(0, -30, -120), math.easeInOutBack},
             param {0, 0.4, self.holo, spine2Angles, nil, Angle(0, 0, (1/3 * -ang) - 15), math.easeOutBack},
             param {0, 0.4, self.holo, spineAngles, nil, Angle(0, 70, (2/3 * -ang)), math.easeOutBack},
-            mergeShotgun(0, 0.5, self.holo, shotgun, rightHandId),
+            mergeShotgun(0, 0.4, self.holo, shotgun, rightHandId),
         } or tween.new({
             mergeShotgun(0, 0.6, self.holo, shotgun, rightHandId),
             param {0, 0.6, self.holo, headAngles, nil, Angle(0, 15, 0), math.easeOutBack},
@@ -522,11 +522,24 @@ function Avatar:shootPose(shotgun, localId)
     self.animation = tween.start(anim)
 end
 
+local function cameraShake(startAt, endAt, amplitude)
+    local camPos = cameraProperties.POS.get()
+    return function(process)
+        if process < startAt then return end
+        if process > endAt then
+            cameraProperties.POS.set(nil, camPos)
+            return true
+        end
+        local frac = (process - startAt) / endAt
+        cameraProperties.POS.set(nil, camPos + (Vector(1) - Vector(math.random(), math.random(), math.random()) * 2) * (1 - frac) * amplitude)
+    end
+end
+
 
 function Avatar:shootAtPlayer(shotgun, localId, isDeath)
     if self.animation then tween.stop(self.animation) end
 
-    local ang = (localId - 2) * 45
+    local ang = (localId - 2) * -45
     local reload = self:shotgunReload(shotgun, 0.8)
     local anim
     if isDeath then
@@ -554,22 +567,13 @@ function Avatar:shootAtPlayer(shotgun, localId, isDeath)
         else
             local pos, angs = self:localToHolo()
             local shotgunAng = Angle(0, math.normalizeAngle(180 - ang), -90)
-            local camPos = cameraProperties.POS.get()
             anim = tween.new {
                 param {0, 0.05, shotgun, pos, nil, Vector(24, 0, 48) + Vector(-2, 4, 0):getRotated(shotgunAng), math.easeOutQuart},
                 param {0, 0.05, shotgun, angs, nil, Angle(shotgunAng.p + 40, shotgunAng.y, shotgunAng.r), math.easeOutQuart},
 
                 param {0.05, 0.8, shotgun, pos, nil, Vector(24, 0, 40) + Vector(-10, 4, 0):getRotated(shotgunAng), math.easeOutBack},
                 param {0.05, 0.8, shotgun, angs, nil, Angle(shotgunAng.p, shotgunAng.y, shotgunAng.r), math.easeOutBack},
-
-                function(process)
-                    if process > 0.6 then
-                        cameraProperties.POS.set(nil, camPos)
-                        return true
-                    end
-                    local frac = process / 0.6
-                    cameraProperties.POS.set(nil, camPos + (Vector(1) - Vector(math.random(), math.random(), math.random()) * 2) * (1 - frac) * 3)
-                end,
+                cameraShake(0, 0.6, 3),
                 reload
             }
         end
@@ -611,7 +615,7 @@ function Avatar:dropShotgun(shotgun)
             param {0.5, 0.9, self.holo, leftUpperarmAngles, nil, Angle(20, -11, 0), math.easeOutBack},
             param {0.5, 0.9, self.holo, leftForearmAngles, nil, Angle(0, -85, 50), math.easeOutBack},
             param {0.4, 0.6, shotgun, tween.ParamProperties.LOCALPOS, nil, Vector(0, 0, 35), math.easeOutCubic},
-            param {0.4, 0.6, shotgun, tween.ParamProperties.LOCALANGLES, nil, Angle(0, 0, 0) + holoAngles, math.easeOutCubic},
+            param {0.4, 0.6, shotgun, tween.ParamProperties.LOCALANGLES, nil, Angle(0, 180, 0) + holoAngles, math.easeOutCubic},
             mergeShotgun(0, 0.4, self.holo, shotgun, rightHandId),
         })
     else
@@ -620,7 +624,7 @@ function Avatar:dropShotgun(shotgun)
             param {0, 0.4, shotgun, pos, nil, Vector(22, 0, 37), math.easeOutCubic},
             param {0, 0.4, shotgun, angs, nil, Angle(20, -90, -80), math.easeOutCubic},
             param {0.4, 0.6, shotgun, tween.ParamProperties.LOCALPOS, nil, Vector(0, 0, 35), math.easeInOutCubic},
-            param {0.4, 0.6, shotgun, tween.ParamProperties.LOCALANGLES, nil, Angle(0, 0, 0) + holoAngles, math.easeInOutQuart},
+            param {0.4, 0.6, shotgun, tween.ParamProperties.LOCALANGLES, nil, Angle(0, 180, 0) + holoAngles, math.easeInOutQuart},
         })
     end
     self.animation = tween.start(anim)
@@ -650,6 +654,7 @@ function Avatar:revive()
     local contrast, _ = self:getForCamera()
     local anim = tween.new({
         param {0, 1, self.holo, alphaProperty, 0, 255, math.easeOutSine},
+        cameraShake(0, 0.6, 2),
         self.ply == Ply and param {0, 1, nil, contrast, 1.5, 1, math.easeInSine} or nil,
     })
     tween.start(anim)
@@ -682,7 +687,7 @@ end
 ---[CLIENT] Look at player 1 (left)
 ---@param cam boolean? Only first-person camera
 function Avatar:atPlayer1(cam)
-    self:lookAtPlayer(45, cam)
+    self:lookAtPlayer(-45, cam)
 end
 
 ---[CLIENT] Look at player 2 (forward)
@@ -694,36 +699,7 @@ end
 ---[CLIENT] Look at player 3 (right)
 ---@param cam boolean? Only first-person camera
 function Avatar:atPlayer3(cam)
-    self:lookAtPlayer(-45, cam)
+    self:lookAtPlayer(45, cam)
 end
-
--- local test = Avatar:new(owner())
--- if !test then return end
--- test.holo:setPos(chip():getPos() + Vector(50, 0, 0))
--- test.holo:setAngles(chip():getAngles() + Angle(0, 180, 0))
--- test.holo:setParent(chip())
--- local shotgunHolo = hologram.create(chip():getPos() + Vector(0, 0, 34), chip():getAngles() + Angle(0, 0, 90), "models/weapons/w_annabelle.mdl")
--- if !shotgunHolo then return end
--- shotgunHolo:setParent(chip())
---
--- timer.simple(1, function()
---     test:takeShotgun(shotgunHolo)
--- end)
---
--- timer.simple(2.5, function()
---     test:shootPoseSelf(shotgunHolo)
--- end)
--- timer.simple(4, function()
---     test:shotgunToHands(shotgunHolo)
--- end)
--- timer.simple(4.5, function()
---     test:shotgunReload(shotgunHolo)
--- end)
--- timer.simple(5.5, function()
---     test:dropShotgun(shotgunHolo)
---     timer.simple(1, function()
---         test:idleAnimation()
---     end)
--- end)
 
 return Avatar
