@@ -20,10 +20,16 @@ local vertex = model.vertex
 local holo = model.holo
 local rig = model.rig
 
-local mdl = model.new("cigarette_box", rig())
-    :add("base", holo { ang = Angle(90, 0, 0), model = "models/holograms/cube.mdl", mesh = "items", meshPart = "cigarette_box", scale = Vector(1, 1, 1)} )
+model.new("cigarette_box", rig())
+    :add("base", holo { ang = Angle(90, 0, 0), model = "models/holograms/cube.mdl", mesh = "items", meshPart = "cigarette_box", scale = Vector(1)} )
+
+model.new("adrenaline", rig())
+    :add("base", holo { ang = Angle(90, 0, 0), model = "models/holograms/cube.mdl", mesh = "items", meshPart = "adrenaline_main_parent", scale = Vector(0.33)} )
+
+-- model.new("adrenaline", rig())
+--     :add("base", holo { ang = Angle(90, 0, 0), model = "models/holograms/cube.mdl", mesh = "items", meshPart = "adrenaline_main_parent", scale = Vector(0.33)} )
 
 if SERVER then
-    local created = mdl:create()
+    local created = model.create("adrenaline")
     created:setPos(chip():getPos() + Vector(0, 0, 50))
 end
