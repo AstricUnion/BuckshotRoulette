@@ -21,6 +21,32 @@ local param = tween.param
 local camera = camera
 
 local Ply = player()
+local Sounds = {
+    TakeShotgun = "weapon.ImpactSoft",
+    UseShotgun1 = "weapon.StepRight",
+    UseShotgun2 = "weapon.StepLeft",
+    DropShotgun = "BaseCombatWeapon.WeaponDrop",
+    EmptyShotgun = "weapons/shotgun/shotgun_empty.wav",
+    Shoot = "weapons/shotgun/shotgun_fire7.wav",
+    Reload = "Weapon_M3.Pump",
+    Defibrillator = "items/nvg_on.wav",
+    Zap = "ambient/energy/weld1.wav",
+    Death = "ambient/materials/platedrop3.wav",
+    Revive = "ambient/misc/metal_str1.wav"
+}
+
+---@param playAt number
+---@param ent Entity
+---@param sound string
+local function tweenSound(playAt, ent, sound, soundLevel, pitch, volume, channel)
+    local isPlayed = false
+    return function(process)
+        if process < playAt then isPlayed = false return end
+        if isPlayed then return true end
+        ent:emitSound(sound, soundLevel, pitch, volume, channel)
+        isPlayed = true
+    end
+end
 
 ---@alias AvatarBone
 ---| '"Pelvis"'
@@ -145,10 +171,10 @@ function Avatar:new(ply)
             })
             render.drawTexturedRect(0, 0, sw, sh)
 
-            render.setFont("Trebuchet18")
-            for i, v in ipairs(turns.getActiveParticipants()) do
-                render.drawSimpleText(sw - 32, sh - (i * 18), string.format("%s: %s", v:getPlayer():getName(), v:getData("health")), TEXT_ALIGN.RIGHT, TEXT_ALIGN.BOTTOM)
-            end
+            -- render.setFont("Trebuchet18")
+            -- for i, v in ipairs(turns.getActiveParticipants()) do
+            --     render.drawSimpleText(sw - 32, sh - (i * 18), string.format("%s: %s", v:getPlayer():getName(), v:getData("health")), TEXT_ALIGN.RIGHT, TEXT_ALIGN.BOTTOM)
+            -- end
         end)
     end
     -- By default start idle animation
@@ -334,6 +360,7 @@ function Avatar:shotgunToHands(shotgun, startAt)
     local _, spineAngles = self:getBone("Spine")
     local anim = tween.new({
         mergeShotgun(0, 0.4, self.holo, shotgun, rightHandId),
+        tweenSound(0, shotgun, Sounds.TakeShotgun),
         param {0, 0.4, self.holo, headAngles, nil, Angle(0, 0, 0), math.easeOutBack},
         param {0, 0.4, self.holo, spine2Angles, nil, Angle(0, 0, 0), math.easeInOutSine},
         param {0, 0.4, self.holo, spineAngles, nil, Angle(0, 70, 0), math.easeInOutSine},
@@ -386,6 +413,8 @@ function Avatar:takeShotgun(shotgun)
             param {0.4, 1, nil, cameraProperties.POS, nil, Vector(5, 0, 55), math.easeOutCubic},
             param {0.4, 1, nil, cameraProperties.ANGLES, nil, Angle(10, 0, 0), math.easeOutCubic},
             param {0.4, 0.8, nil, cameraProperties.FOV, nil, 100, math.easeOutCubic},
+            tweenSound(0.2, shotgun, Sounds.UseShotgun1),
+            tweenSound(0.5, shotgun, Sounds.TakeShotgun),
         })
     end
     self.animation = tween.start(anim)
@@ -418,6 +447,7 @@ function Avatar:shotgunReload(shotgun, startAt)
             param {0.4, 0.8, self.holo, leftUpperarmAngles, nil, Angle(20, -20, 0), math.easeInQuart},
             param {0.4, 0.8, self.holo, leftForearmAngles, nil, Angle(20, -130, 30), math.easeInQuart},
             param {0.4, 0.8, self.holo, leftHandAngles, nil, Angle(-10, -60, -120), math.easeInQuart},
+            tweenSound(0.7, shotgun, Sounds.Reload),
 
             param {0.8, 1.2, self.holo, headAngles, nil, Angle(0, 0, 0), math.easeOutBack},
             param {0.8, 1.2, self.holo, spine2Angles, nil, Angle(0, 0, 0), math.easeOutQuart},
@@ -439,6 +469,7 @@ function Avatar:shotgunReload(shotgun, startAt)
 
             param {0.7, 0.9, shotgun, pos, nil, Vector(25, -5, 37), math.easeInBack},
             param {0.7, 0.9, shotgun, angs, nil, Angle(10, -88, -90), math.easeInBack},
+            tweenSound(0.8, shotgun, Sounds.Reload),
 
             param {0.9, 1.2, shotgun, pos, nil, Vector(24, 0, 37), math.easeOutCubic},
             param {0.9, 1.2, shotgun, angs, nil, Angle(20, -90, -90), math.easeOutCubic},
@@ -486,6 +517,7 @@ function Avatar:shootPose(shotgun, localId)
             param {0, 0.4, self.holo, spine2Angles, nil, Angle(0, 0, (1/3 * -ang) - 15), math.easeOutBack},
             param {0, 0.4, self.holo, spineAngles, nil, Angle(0, 70, (2/3 * -ang)), math.easeOutBack},
             mergeShotgun(0, 0.4, self.holo, shotgun, rightHandId),
+            tweenSound(0.4, shotgun, Sounds.TakeShotgun),
         } or tween.new({
             mergeShotgun(0, 0.6, self.holo, shotgun, rightHandId),
             param {0, 0.6, self.holo, headAngles, nil, Angle(0, 15, 0), math.easeOutBack},
@@ -497,6 +529,7 @@ function Avatar:shootPose(shotgun, localId)
             param {0, 0.6, self.holo, leftUpperarmAngles, nil, Angle(0, -30, 60), math.easeInOutQuart},
             param {0, 0.6, self.holo, leftForearmAngles, nil, Angle(-20, -120, 0), math.easeInOutQuart},
             param {0, 0.6, self.holo, leftHandAngles, nil, Angle(-10, -10, 0), math.easeInOutQuart},
+            tweenSound(0, shotgun, Sounds.UseShotgun2),
         })
     else
         local pos, angs = self:localToHolo()
@@ -508,12 +541,14 @@ function Avatar:shootPose(shotgun, localId)
 
             param {0.4, 0.8, shotgun, pos, nil, Vector(24, 0, 40) + Vector(-10, 4, 0):getRotated(shotgunAng), math.easeOutQuart},
             param {0.4, 0.8, shotgun, angs, nil, shotgunAng, math.easeOutQuart},
+            tweenSound(0.4, shotgun, Sounds.TakeShotgun),
             param {0, 0.6, nil, cameraProperties.POS, nil, Vector(5, 0, 55) + Vector(5, 0, 0):getRotated(camAngs), math.easeOutCubic},
             param {0, 0.6, nil, cameraProperties.ANGLES, nil, camAngs, math.easeOutCubic},
             param {0, 0.8, nil, cameraProperties.FOV, nil, 102},
         } or tween.new({
             param {0, 0.6, shotgun, pos, nil, Vector(10, 0, 32), math.easeInOutQuart},
             param {0, 0.6, shotgun, angs, nil, Angle(85, 0, -90), math.easeInOutQuart},
+            tweenSound(0, shotgun, Sounds.TakeShotgun),
             param {0, 0.6, nil, cameraProperties.POS, nil, Vector(4, 0, 55), math.easeInOutCubic},
             param {0, 0.6, nil, cameraProperties.ANGLES, nil, Angle(50, 0, 1), math.easeInOutCubic},
             param {0, 0.6, nil, cameraProperties.FOV, nil, 87, math.easeInOutCubic},
@@ -561,6 +596,7 @@ function Avatar:shootAtPlayer(shotgun, localId, isDeath)
                 param {0.05, 0.8, self.holo, rightForearmAngles, nil, Angle(0, -100, 30), math.easeOutQuart},
                 param {0, 0.05, self.holo, rightHandAngles, nil, Angle(-30, 20, 0), math.easeOutBack},
                 param {0.05, 0.8, self.holo, rightHandAngles, nil, Angle(-60, 20, 0), math.easeOutBack},
+                tweenSound(0, shotgun, Sounds.Shoot),
                 mergeShotgun(0, 0.8, self.holo, shotgun, rightHandId),
                 reload
             })
@@ -573,12 +609,16 @@ function Avatar:shootAtPlayer(shotgun, localId, isDeath)
 
                 param {0.05, 0.8, shotgun, pos, nil, Vector(24, 0, 40) + Vector(-10, 4, 0):getRotated(shotgunAng), math.easeOutBack},
                 param {0.05, 0.8, shotgun, angs, nil, Angle(shotgunAng.p, shotgunAng.y, shotgunAng.r), math.easeOutBack},
+                tweenSound(0, shotgun, Sounds.Shoot),
                 cameraShake(0, 0.6, 3),
                 reload
             }
         end
     else
-        anim = reload
+        anim = tween.new {
+            reload,
+            tweenSound(0, shotgun, Sounds.EmptyShotgun),
+        }
     end
     self.animation = tween.start(anim)
 end
@@ -616,6 +656,7 @@ function Avatar:dropShotgun(shotgun)
             param {0.5, 0.9, self.holo, leftForearmAngles, nil, Angle(0, -85, 50), math.easeOutBack},
             param {0.4, 0.6, shotgun, tween.ParamProperties.LOCALPOS, nil, Vector(0, 0, 35), math.easeOutCubic},
             param {0.4, 0.6, shotgun, tween.ParamProperties.LOCALANGLES, nil, Angle(0, 180, 0) + holoAngles, math.easeOutCubic},
+            tweenSound(0.5, shotgun, Sounds.DropShotgun),
             mergeShotgun(0, 0.4, self.holo, shotgun, rightHandId),
         })
     else
@@ -625,6 +666,7 @@ function Avatar:dropShotgun(shotgun)
             param {0, 0.4, shotgun, angs, nil, Angle(20, -90, -80), math.easeOutCubic},
             param {0.4, 0.6, shotgun, tween.ParamProperties.LOCALPOS, nil, Vector(0, 0, 35), math.easeInOutCubic},
             param {0.4, 0.6, shotgun, tween.ParamProperties.LOCALANGLES, nil, Angle(0, 180, 0) + holoAngles, math.easeInOutQuart},
+            tweenSound(0.5, shotgun, Sounds.DropShotgun),
         })
     end
     self.animation = tween.start(anim)
@@ -637,10 +679,17 @@ function Avatar:death(shotgun)
     end
     self.holo:setColor(Color(255, 255, 255, 0))
     self:idleAnimation()
-    local anim = tween.new({
+    local anim = tween.new {
+        shotgun and tweenSound(0, shotgun, Sounds.Shoot),
         shotgun and param {0, 0.4, shotgun, tween.ParamProperties.LOCALPOS, nil, Vector(0, 0, 35), math.easeInOutCubic} or nil,
         shotgun and param {0, 0.4, shotgun, tween.ParamProperties.LOCALANGLES, nil, Angle(0, -180, 0) + holoAngles, math.easeInOutQuart} or nil,
-    })
+    }
+    if self.ply ~= Ply then
+        anim = tween.new {
+            anim,
+            tweenSound(0.2, self.holo, Sounds.Death)
+        }
+    end
     tween.start(anim)
 end
 
@@ -652,12 +701,22 @@ local alphaProperty = {
 
 function Avatar:revive()
     local contrast, _ = self:getForCamera()
-    local anim = tween.new({
-        param {0, 1, self.holo, alphaProperty, 0, 255, math.easeOutSine},
-        cameraShake(0, 0.6, 2),
-        self.ply == Ply and param {0, 1, nil, contrast, 1.5, 1, math.easeInSine} or nil,
-    })
-    tween.start(anim)
+    local mainAnim = param {1, 2, self.holo, alphaProperty, 0, 255, math.easeOutSine}
+    if self.ply == Ply then
+        mainAnim = tween.new {
+            mainAnim,
+            param {1, 2.5, nil, contrast, 1.5, 1, math.easeInSine},
+            cameraShake(1, 1.6, 2),
+            tweenSound(0, self.holo, Sounds.Defibrillator),
+            tweenSound(1, self.holo, Sounds.Zap)
+        }
+    else
+        mainAnim = tween.new {
+            mainAnim,
+            tweenSound(1, self.holo, Sounds.Revive),
+        }
+    end
+    tween.start(mainAnim)
 end
 
 ---[CLIENT] Animation to look at player

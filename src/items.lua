@@ -132,6 +132,26 @@ else
         })
     end
 
+    ---[CLIENT] Hover item
+    ---@param id number Index of slot
+    function Item:hover(id)
+        local pos = items.slotPositions[id]
+        if self.animation then tween.stop(self.animation) end
+        self.animation = tween.start(tween.new {
+            tween.param {0, 0.2, self.model, tween.ParamProperties.LOCALPOS, nil, pos + Vector(0, 0, 2), math.easeOutQuart},
+        })
+    end
+
+    ---[CLIENT] Unhover item
+    ---@param id number Index of slot
+    function Item:unhover(id)
+        local pos = items.slotPositions[id]
+        if self.animation then tween.stop(self.animation) end
+        self.animation = tween.start(tween.new {
+            tween.param {0, 0.2, self.model, tween.ParamProperties.LOCALPOS, nil, pos, math.easeOutQuart},
+        })
+    end
+
 
     hook.add("Think", "BuckshotInitializeItems", function()
         if table.isEmpty(toInit) then return end

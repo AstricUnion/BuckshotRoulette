@@ -13,10 +13,16 @@ local screen = {}
 screen.inited = {}
 screen.font = render.createFont("Arial", 72, 500, true, false, false, false, 0, false, 0)
 
+local Sounds = {
+    Death = "ui/buttonrollover.wav",
+    Heal = "buttons/bell1.wav"
+}
+
 
 ---@class LifeScreen
 ---@field id number
 ---@field participant Participant
+---@field health number
 local LifeScreen = {}
 LifeScreen.__index = LifeScreen
 
@@ -26,7 +32,8 @@ LifeScreen.__index = LifeScreen
 function screen.new(part)
     local obj = setmetatable({
         id = part.sortedId,
-        participant = part
+        participant = part,
+        health = part:getData("health")
     }, LifeScreen)
     screen.inited[obj.id] = obj
     return obj
@@ -51,13 +58,26 @@ function LifeScreen:drawLighting(x, y, scale)
 end
 
 
+function LifeScreen:updateHealth()
+    local health = self.participant:getData("health")
+    if health < self.health then
+        local seat = self.participant.ent
+        seat:emitSound(Sounds.Death, 75, 100, 2)
+    elseif health > self.health then
+        local seat = self.participant.ent
+        seat:emitSound(Sounds.Heal)
+    end
+    self.health = health
+end
+
+
 function LifeScreen:draw()
     local ply = self.participant:getPlayer()
     if !isValid(ply) then return end
     render.setColor(Color(217, 244, 189))
     render.drawRectFast(0, 64, 1024, 16)
     render.drawRectFast(0, 512, 1024, 16)
-    for i=0, self.participant:getData("health") - 1 do
+    for i=0, self.health - 1 do
         self:drawLighting(64 + i * 150, 108, 220)
     end
 end

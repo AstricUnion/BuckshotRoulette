@@ -6,6 +6,7 @@
 ---@field w number
 ---@field h number
 ---@field enable boolean
+---@field hovered boolean
 
 ---Base class to manipulate interactive areas at screen
 ---@class interactive
@@ -22,13 +23,12 @@ interactive.draw = false
 ---@param area string Area identifier
 function interactive.onInput(ply, area) end
 
----[SHARED] Hook on area hover
----@param ply Player Player hovered
----@param area string Area identifier
----@param state boolean
-function interactive.onHoverChanged(ply, area, state) end
-
 if CLIENT then
+    ---[CLIENT] Hook on area hover
+    ---@param area string Area identifier
+    ---@param state boolean
+    function interactive.onHoverChanged(area, state) end
+
     ---[CLIENT] Add new interactive area. All coordinates is number from 0 to 1 (screen percentage)
     ---@param id string Individual identifier of area
     ---@param x number
@@ -37,7 +37,7 @@ if CLIENT then
     ---@param h number
     ---@param groupId string? Identifier of area group to add
     function interactive.addArea(id, x, y, w, h, groupId)
-        local area = {x = x, y = y, w = w, h = h, enable = false}
+        local area = {x = x, y = y, w = w, h = h, enable = false, hovered = false}
         interactive.areas[id] = area
         if groupId then
             local group = interactive.groups[groupId] or {}
@@ -100,11 +100,23 @@ if CLIENT then
         local sw, sh = render.getGameResolution()
         local cX, cY = input.getCursorPos()
         render.setFont("Default")
+        local alreadyHover = false
         for id, v in pairs(interactive.areas) do
             if !v.enable then goto cont end
             local x, y = v.x * sw, v.y * sh
             local w, h = v.w * sw, v.h * sh
-            render.setColor(isPointHoversArea(cX, cY, x, y, w, h) and Color(255, 0, 0) or Color())
+            local hovered = false
+            if !alreadyHover then
+                hovered = isPointHoversArea(cX, cY, x, y, w, h)
+                if !v.hovered and hovered then
+                    interactive.onHoverChanged(id, true)
+                elseif v.hovered and !hovered then
+                    interactive.onHoverChanged(id, false)
+                end
+                v.hovered = hovered
+                alreadyHover = hovered
+            end
+            render.setColor(hovered and Color(255, 0, 0) or Color())
             render.drawRectOutline(x, y, w, h)
             render.drawSimpleText(x, y, id, nil, TEXT_ALIGN.BOTTOM)
             ::cont::

@@ -166,6 +166,15 @@ if SERVER then
         end
     end)
 
+
+    net.receive("LookAtPlayer", function(_, ply)
+        local localId = net.readUInt(2)
+        local part = turns.getParticipant(ply)
+        local turn = turns.getTurn()
+        if !part or turn ~= part then return end
+        turns.sendSignal("LookAtPlayer", {localId = localId})
+    end)
+
     -- Start new sequence of shells
     local function tryToStartNewSequence()
         turns.setData("shells", {true, false, true})
@@ -192,7 +201,7 @@ if SERVER then
             if !v:getPlayer() then goto cont end
             local currentItems = table.count(v:getData("items"))
             if v:getData("health") <= 0 then goto cont end
-            local toTake = {"beer", "beer", "beer", "beer", "beer", "beer", "beer", "beer"}
+            local toTake = {"beer"} -- , "beer", "beer", "beer", "beer", "beer", "beer", "beer"}
             toTake = {unpack(toTake, 1, 8 - currentItems)}
             if #toTake == 0 then
                 v:setData("state", STATE.Idle)
@@ -338,9 +347,38 @@ else
 
     local function turnShotgun(angle)
         if shotgunAnim then tween.stop(shotgunAnim) end
+        shotgunHolo:emitSound("buttons/lever8.wav")
         shotgunAnim = tween.start(tween.new {
-            tween.param {0, 0.4, shotgunHolo, tween.ParamProperties.LOCALANGLES, nil, Angle(0, angle - 90, 0), math.easeInOutSine }
+            tween.param {0, 0.6, shotgunHolo, tween.ParamProperties.LOCALANGLES, nil, Angle(0, angle - 90, 0), math.easeInOutSine }
         })
+    end
+
+    function interactive.onHoverChanged(area, hovered)
+        local part = turns.getLocalPlayerParticipant()
+        if !part then return end
+        local state = part:getData("state")
+        if string.startsWith(area, "slot") and state == STATE.Idle then
+            local slots = part:getData("items")
+            local slot = tonumber(string.replace(area, "slot", ""))
+            if !slot then return end
+            local itemId = slots[slot]
+            if !itemId then return end
+            local item = items.inited[itemId]
+            if hovered then
+                item:hover(slot)
+            else
+                item:unhover(slot)
+            end
+            return
+        end
+
+        if string.startsWith(area, "player") and state == STATE.WithShotgun then
+            local partAdd = tonumber(string.replace(area, "player", ""))
+            if !partAdd or partAdd == 2 or partAdd == 0 then return end
+            net.start("LookAtPlayer")
+                net.writeUInt(hovered and partAdd or 2, 2)
+            net.send()
+        end
     end
 
     -- Move item to slot
@@ -376,6 +414,18 @@ else
         end
     end)
 
+    turns.signal("LookAtPlayer", function(data)
+        local localId = data.localId
+        local turn = turns.getTurn()
+        if !turn then return end
+        local currentPart = turns.getLocalPlayerParticipant()
+        if turn == currentPart then return end
+        local avatar = avatars[turn.sortedId]
+        if avatar then
+            avatar["atPlayer" .. localId](avatar)
+        end
+    end)
+
     turns.signal("ShootAt", function(data)
         local currentPart = turns.getLocalPlayerParticipant()
         local part = turns.participantsSorted[data.participantId]
@@ -391,9 +441,17 @@ else
         timer.simple(1, function()
             local target = turns.getLocalParticipant(part, data.shootAt)
             local targetAvatar = avatars[target.sortedId]
+            local targetScreen = screen.inited[target.sortedId]
             if targetAvatar then
+                local isSelf = data.shootAt == 0
                 if data.isDeath then
-                    targetAvatar:death(data.shootAt == 0 and shotgunHolo or nil)
+                    targetAvatar:death(isSelf and shotgunHolo or nil)
+                    if target == currentPart then
+                        targetAvatar["atPlayer" .. turns.getParticipantLocalId(target, part)](targetAvatar, true)
+                    end
+                    timer.simple(currentPart == target and 3.5 or 0.5, function()
+                        targetScreen:updateHealth()
+                    end)
                     if target:getData("health") > 0 then
                         timer.simple(1, function()
                             targetAvatar:revive()
@@ -442,10 +500,6 @@ else
         )
     end)
 
-    turns.signal("ContinueTurn", function(data)
-        changeTurn(turns.participantsSorted[data.participantId])
-    end)
-
     function turns.participantDataChanged(part, old, new, isLocal)
         -- On box items
         if old.state ~= STATE.Box and new.state == STATE.Box then
@@ -461,7 +515,13 @@ else
                     input.enableCursor(true)
                 end
             end
-            animation()
+            if avatar.contrast ~= 1 then
+                timer.simple(1, function()
+                    animation()
+                end)
+            else
+                animation()
+            end
         end
     end
 

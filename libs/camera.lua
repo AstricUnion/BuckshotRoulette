@@ -175,7 +175,7 @@ hook.add("CalcView", "PinCamera", function()
             pin:setLocalAngles(math.lerpAngle(ratio, angs, camera.targetAngle))
         end
         if camera.targetFov and fov then
-            camera.setFOV(math.lerp(ratio, fov, camera.targetFov))
+            camera.fov = math.lerp(ratio, fov, camera.targetFov)
         end
     end
     pos = pin:getPos()
