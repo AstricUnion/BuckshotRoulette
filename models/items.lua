@@ -20,16 +20,25 @@ local vertex = model.vertex
 local holo = model.holo
 local rig = model.rig
 
-model.new("cigarette_box", rig())
-    :add("base", holo { ang = Angle(90, 0, 0), model = "models/holograms/cube.mdl", mesh = "items", meshPart = "cigarette_box", scale = Vector(1)} )
+model.new(
+    "cigarette_pack",
+    holo { model = "models/holograms/cube.mdl", mesh = "items", meshPart = "cigarette_box", scale = Vector(1) }
+)
+    :add("lid", holo { model = "models/holograms/cube.mdl", mesh = "items", meshPart = "cigarette_lid", scale = Vector(1)})
 
-model.new("adrenaline", rig())
-    :add("base", holo { ang = Angle(90, 0, 0), model = "models/holograms/cube.mdl", mesh = "items", meshPart = "adrenaline_main_parent", scale = Vector(0.33)} )
+model.new(
+    "jammer",
+    holo { model = "models/holograms/cube.mdl", mesh = "items", meshPart = "jammer_lod", scale = Vector(0.5) }
+)
 
--- model.new("adrenaline", rig())
---     :add("base", holo { ang = Angle(90, 0, 0), model = "models/holograms/cube.mdl", mesh = "items", meshPart = "adrenaline_main_parent", scale = Vector(0.33)} )
+model.new(
+    "adrenaline",
+    holo { model = "models/holograms/cube.mdl", mesh = "items", meshPart = "adrenaline_main_parent", scale = Vector(0.33) }
+)
+    :add("cap", holo { model = "models/holograms/cube.mdl", mesh = "items", meshPart = "adrenaline_cap", scale = Vector(0.33)})
 
-if SERVER then
-    local created = model.create("adrenaline")
-    created:setPos(chip():getPos() + Vector(0, 0, 50))
-end
+model.new(
+    "burner_phone",
+    holo { model = "models/holograms/cube.mdl", mesh = "items", meshPart = "burner_phone_main_parent", scale = Vector(0.33)}
+)
+    :add("lid", holo { model = "models/holograms/cube.mdl", mesh = "items", meshPart = "burner_phone_lid", scale = Vector(0.33)})

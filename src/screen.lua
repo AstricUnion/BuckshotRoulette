@@ -23,6 +23,7 @@ local Sounds = {
 ---@field id number
 ---@field participant Participant
 ---@field health number
+---@field updated boolean
 local LifeScreen = {}
 LifeScreen.__index = LifeScreen
 
@@ -33,7 +34,8 @@ function screen.new(part)
     local obj = setmetatable({
         id = part.sortedId,
         participant = part,
-        health = part:getData("health")
+        health = part:getData("health"),
+        updated = false
     }, LifeScreen)
     screen.inited[obj.id] = obj
     return obj
@@ -68,6 +70,7 @@ function LifeScreen:updateHealth()
         seat:emitSound(Sounds.Heal)
     end
     self.health = health
+    self.updated = false
 end
 
 
@@ -84,6 +87,7 @@ end
 
 hook.add("RenderOffscreen", "LifeScreens", function()
     for i, v in pairs(screen.inited) do
+        if v.updated then return end
         render.selectRenderTarget("LifeScreen" .. i)
         render.clear(Color(0, 0, 0))
         v:draw()

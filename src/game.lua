@@ -38,6 +38,36 @@ end
 items.register(Beer)
 
 
+---@class CigarettePack: Item
+local CigarettePack = {}
+CigarettePack.Identifier = "cigarette_pack"
+CigarettePack.Model = function()
+    return model.create("cigarette_pack")
+end
+CigarettePack.Angle = Angle(180, 220, 0)
+CigarettePack.Offset = Angle(0, 0, -2)
+
+function CigarettePack:onUse()
+    local ply = self.seat:getDriver()
+    if !isValid(ply) then return end
+    local part = turns.getParticipant(ply)
+    if !part then return end
+    if SERVER then
+        local hp = part:getData("health")
+        if hp >= 6 then return end
+        part:setData("health", hp + 1)
+    else
+        timer.simple(1, function()
+            local scr = screen.inited[part.sortedId]
+            scr:updateHealth()
+        end)
+        self.model:remove()
+    end
+end
+
+items.register(CigarettePack)
+
+
 ---@type table<number, Avatar>
 local avatars = {}
 
@@ -201,7 +231,7 @@ if SERVER then
             if !v:getPlayer() then goto cont end
             local currentItems = table.count(v:getData("items"))
             if v:getData("health") <= 0 then goto cont end
-            local toTake = {"beer"} -- , "beer", "beer", "beer", "beer", "beer", "beer", "beer"}
+            local toTake = {"beer", "cigarette_pack"} -- , "beer", "beer", "beer", "beer", "beer", "beer", "beer"}
             toTake = {unpack(toTake, 1, 8 - currentItems)}
             if #toTake == 0 then
                 v:setData("state", STATE.Idle)
