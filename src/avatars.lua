@@ -16,6 +16,7 @@ local avatar = {}
 ---@class tween
 local tween = tween
 local param = tween.param
+local lerpParam = tween.lerpParam
 
 ---@class camera
 local camera = camera
@@ -73,6 +74,7 @@ end
 ---| '"R_Foot"'
 ---| '"R_Toe0"'
 
+
 local cameraProperties = {
     POS = {
         set = function(_, toSet) camera.setPos(toSet) end,
@@ -102,6 +104,8 @@ local CAMERA = {
     AtPlayer3 = camera.preset(Vector(10, 0, 55), Angle(10, -30, 0), 80)
 }
 
+local lerpRatio = 0.15
+
 ---Avatar class. With it we can made animations for players at table
 ---@class Avatar
 ---@field holo Entity Holo of player
@@ -109,6 +113,7 @@ local CAMERA = {
 ---@field ply Player Player linked to this avatar
 ---@field contrast number Camera contrast of this avatar
 ---@field color number Camera color of this avatar
+---@field fade number Fade (0 - full black, 1 - full transparent)
 ---@field bones table<AvatarBone, ParamProperties> Holo of player
 ---@field animation number?
 local Avatar = {}
@@ -117,18 +122,21 @@ Avatar.__index = Avatar
 local screenspace = material.load("models/screenspace")
 
 ---[CLIENT] Create new avatar of player
+---@param seat Vehicle
 ---@param ply Player
 ---@return Avatar?
-function Avatar:new(ply)
+function Avatar:new(seat, ply)
     -- Create player hologram with model
-    local holo = hologram.create(Vector(), Angle(), ply:getModel())
+    local holo = hologram.create(seat:getPos(), seat:getAngles() + Angle(0, 90, 0), ply:getModel())
     if !holo then return end
     if Ply == ply then
         -- Start camera, if local player
         camera.setParent(holo)
         camera.enable(true)
         CAMERA.Default(1)
+        holo:setNoDraw(true)
     end
+    pcall(ply.setNoDraw, ply, true)
     -- Set some settings for player
     holo:setPlayerColor(ply:getPlayerColor())
     for _, v in ipairs(ply:getBodygroups()) do
@@ -140,8 +148,10 @@ function Avatar:new(ply)
     local obj = setmetatable({
         holo = holo,
         ply = ply,
+        seat = seat,
         contrast = 1,
-        color = 1
+        color = 1,
+        fade = 1
     }, Avatar)
     -- Cache bones and parameters for tweens
     local bones = {}
@@ -170,11 +180,7 @@ function Avatar:new(ply)
                 mulb = 0
             })
             render.drawTexturedRect(0, 0, sw, sh)
-
-            -- render.setFont("Trebuchet18")
-            -- for i, v in ipairs(turns.getActiveParticipants()) do
-            --     render.drawSimpleText(sw - 32, sh - (i * 18), string.format("%s: %s", v:getPlayer():getName(), v:getData("health")), TEXT_ALIGN.RIGHT, TEXT_ALIGN.BOTTOM)
-            -- end
+            render.setColor(Color(0, 0, 0, (1 - obj.fade) * 255))
         end)
     end
     -- By default start idle animation
@@ -218,6 +224,7 @@ end
 ---[CLIENT] Get tween parameters for camera parameters
 ---@return ParamProperty contrast
 ---@return ParamProperty color
+---@return ParamProperty fade
 function Avatar:getForCamera()
     return {
         set = function(_, toSet) self.contrast = toSet end,
@@ -225,8 +232,10 @@ function Avatar:getForCamera()
     }, {
         set = function(_, toSet) self.color = toSet end,
         get = function(_) return self.color end
+    }, {
+        set = function(_, toSet) self.fade = toSet end,
+        get = function(_) return self.fade end
     }
-
 end
 
 
@@ -277,34 +286,66 @@ function Avatar:idleAnimation()
     self.animation = tween.start(anim, true)
 end
 
-
 ---[CLIENT] Start animation on player box
 function Avatar:takeBox()
+    if self.animation then tween.stop(self.animation) end
     if self.ply == Ply then
-        CAMERA.AtBox()
+        self.animation = tween.start(tween.new {
+            lerpParam {0, nil, cameraProperties.POS, Vector(12, 0, 52), lerpRatio},
+            lerpParam {0, nil, cameraProperties.ANGLES, Angle(55, 0, 0), lerpRatio},
+            lerpParam {0, nil, cameraProperties.FOV, 90, lerpRatio},
+        })
     end
 end
 
 ---[CLIENT] Start animation to shotgun
 function Avatar:atShotgun()
     if self.ply == Ply then
-        CAMERA.AtShotgun()
+        if self.animation then tween.stop(self.animation) end
+        self.animation = tween.start(tween.new {
+            lerpParam {0, nil, cameraProperties.POS, Vector(42, 0, 48), lerpRatio},
+            lerpParam {0, nil, cameraProperties.ANGLES, Angle(60, 30, 0), lerpRatio},
+            lerpParam {0, nil, cameraProperties.FOV, 90, lerpRatio},
+        })
     end
 end
 
 ---[CLIENT] Start animation on box removing
 function Avatar:removeBox()
+    if self.animation then tween.stop(self.animation) end
     if self.ply == Ply then
-        CAMERA.AtTable()
+        self.animation = tween.start(tween.new {
+            lerpParam {0, nil, cameraProperties.POS, Vector(10, 0, 55), lerpRatio},
+            lerpParam {0, nil, cameraProperties.ANGLES, Angle(50, 0, 0), lerpRatio},
+            lerpParam {0, nil, cameraProperties.FOV, 90, lerpRatio},
+        })
     end
 end
 
 ---[CLIENT] Start animation on player turn
 function Avatar:turn()
     if self.ply == Ply then
-        CAMERA.AtTable()
+        if self.animation then tween.stop(self.animation) end
+        self.animation = tween.start(tween.new {
+            lerpParam {0, nil, cameraProperties.POS, Vector(10, 0, 55), lerpRatio},
+            lerpParam {0, nil, cameraProperties.ANGLES, Angle(50, 0, 0), lerpRatio},
+            lerpParam {0, nil, cameraProperties.FOV, 90, lerpRatio},
+        })
     end
 end
+
+---[CLIENT] Start animation to screen
+function Avatar:lookAtScreen()
+    if self.ply == Ply then
+        if self.animation then tween.stop(self.animation) end
+        self.animation = tween.start(tween.new {
+            lerpParam {0, nil, cameraProperties.POS, Vector(20, 0, 40), lerpRatio},
+            lerpParam {0, nil, cameraProperties.ANGLES, Angle(60, 0, 0), lerpRatio},
+            lerpParam {0, nil, cameraProperties.FOV, 90, lerpRatio},
+        })
+    end
+end
+
 
 ---[CLIENT] Merge shotgun hologram with bone
 local function mergeShotgun(startAt, endAt, holo, shotgun, boneId)
@@ -410,8 +451,8 @@ function Avatar:takeShotgun(shotgun)
 
             param {0.4, 1, shotgun, pos, nil, Vector(24, 0, 37), math.easeInOutQuart},
             param {0.4, 1, shotgun, angs, nil, Angle(20, -90, -90), math.easeInOutQuart},
-            param {0.4, 1, nil, cameraProperties.POS, nil, Vector(5, 0, 55), math.easeOutCubic},
-            param {0.4, 1, nil, cameraProperties.ANGLES, nil, Angle(10, 0, 0), math.easeOutCubic},
+            param {0.4, 1, nil, cameraProperties.POS, nil, Vector(5, 0, 55), math.easeOutSine},
+            param {0.4, 1, nil, cameraProperties.ANGLES, nil, Angle(10, 0, 0), math.easeOutSine},
             param {0.4, 0.8, nil, cameraProperties.FOV, nil, 100, math.easeOutCubic},
             tweenSound(0.2, shotgun, Sounds.UseShotgun1),
             tweenSound(0.5, shotgun, Sounds.TakeShotgun),
@@ -587,10 +628,10 @@ function Avatar:shootAtPlayer(shotgun, localId, isDeath)
 
             anim = tween.new({
                 param {0, 0.05, self.holo, headAngles, nil, Angle(0, -20, 15), math.easeOutQuart},
-                param {0, 0.05, self.holo, spine2Angles, nil, Angle(0, -10, (1/3 * ang) - 15), math.easeOutBack},
+                param {0, 0.05, self.holo, spine2Angles, nil, Angle(0, -10, (1/3 * -ang) - 15), math.easeOutBack},
                 param {0.05, 0.8, self.holo, headAngles, nil, Angle(0, 0, 15), math.easeOutQuart},
-                param {0.05, 0.8, self.holo, spine2Angles, nil, Angle(0, 0, (1/3 * ang) - 15), math.easeOutBack},
-                param {0, 0.2, self.holo, spineAngles, nil, Angle(0, 70, (2/3 * ang)), math.easeOutBack},
+                param {0.05, 0.8, self.holo, spine2Angles, nil, Angle(0, 0, (1/3 * -ang) - 15), math.easeOutBack},
+                param {0, 0.2, self.holo, spineAngles, nil, Angle(0, 70, (2/3 * -ang)), math.easeOutBack},
 
                 param {0, 0.05, self.holo, rightForearmAngles, nil, Angle(0, -80, 30), math.easeOutQuart},
                 param {0.05, 0.8, self.holo, rightForearmAngles, nil, Angle(0, -100, 30), math.easeOutQuart},
@@ -703,6 +744,9 @@ function Avatar:revive()
     local contrast, _ = self:getForCamera()
     local mainAnim = param {1, 2, self.holo, alphaProperty, 0, 255, math.easeOutSine}
     if self.ply == Ply then
+        self.color = 1
+        self.contrast = 0
+        self.fade = 1
         mainAnim = tween.new {
             mainAnim,
             param {1, 2.5, nil, contrast, 1.5, 1, math.easeInSine},
@@ -719,6 +763,18 @@ function Avatar:revive()
     tween.start(mainAnim)
 end
 
+function Avatar:spectator()
+    if self.ply ~= Ply then return end
+    local _, _, fade = self:getForCamera()
+    self.contrast = 1
+    self.fade = 0
+    self.color = 0
+    local anim = tween.new {
+        param {0, 1, nil, fade, 0, 1, math.easeOutSine}
+    }
+    tween.start(anim)
+end
+
 ---[CLIENT] Animation to look at player
 ---@param ang number Angle for head
 ---@param cam boolean? Only first-person camera
@@ -730,11 +786,14 @@ function Avatar:lookAtPlayer(ang, cam)
         })
         return
     end
-    tween.start(tween.new {
-        param {0, 0.6, nil, cameraProperties.POS, nil, Vector(5, 0, 55), math.easeOutSine},
-        param {0, 0.6, nil, cameraProperties.ANGLES, nil, Angle(10, ang - (ang * 1/3), 0), math.easeOutSine},
-        param {0, 0.6, nil, cameraProperties.FOV, nil, 88, math.easeOutSine}
-    })
+    if self.ply == Ply then
+        if self.animation then tween.stop(self.animation) end
+        self.animation = tween.start(tween.new {
+            lerpParam {0, nil, cameraProperties.POS, Vector(5, 0, 55), lerpRatio},
+            lerpParam {0, nil, cameraProperties.ANGLES, Angle(10, ang - (ang * 1/3), 0), lerpRatio},
+            lerpParam {0, nil, cameraProperties.FOV, 88, lerpRatio}
+        })
+    end
 end
 
 ---[CLIENT] Look at player 0 (self)

@@ -94,12 +94,14 @@ local STATE = {
 local STEP = {
     ---Default step, before game
     NoGame = -1,
+    ---Screen demostration with round
+    Screen = 0,
     ---Players take items from boxes
-    Items = 0,
+    Items = 1,
     ---Shotgun demostration with shells
-    Shotgun = 1,
+    Shotgun = 2,
     ---Participants plays game
-    Gameplay = 2,
+    Gameplay = 3,
 }
 
 
@@ -112,7 +114,7 @@ if SERVER then
     local initialData = {
         itemsToTook = {}, -- Items to pickup, server generates it
         items = {}, -- Maximum 8 items
-        health = 6, -- Player health, maximum 6
+        health = 2, -- Player health, maximum 6
         isJammed = false, -- Is player jammed by other player
         state = STATE.Idle -- State of player, yeah
     }
@@ -125,6 +127,8 @@ if SERVER then
 
     turns.setData("gameStep", STEP.NoGame)
     turns.setData("shells", {})
+    turns.setData("maxHealth", 6)
+    turns.setData("round", 1)
 else
     -- Add interactive areas
     local width, height = 0.1, 0.2
@@ -160,11 +164,8 @@ function turns.newParticipant(ply, part)
         return
     end
     screen.new(part)
-    local avatar = Avatar:new(ply)
+    local avatar = Avatar:new(part.ent, ply)
     if avatar then
-        avatar.holo:setPos(part.ent:getPos())
-        avatar.holo:setAngles(part.ent:localToWorldAngles(Angle(0, 90, 0)))
-        avatar.holo:setParent(part.ent)
         avatars[part.sortedId] = avatar
     end
 end
@@ -193,6 +194,7 @@ if SERVER then
     hook.add("PlayerSay", "StartGame", function(ply, text)
         if ply == owner() and text == "!start" then
             turns.start()
+            return ""
         end
     end)
 
@@ -211,8 +213,7 @@ if SERVER then
         local activeParts = turns.getActiveParticipants()
         for _, activePart in ipairs(activeParts) do
             local state = activePart:getData("state")
-            local health = activePart:getData("health")
-            if state == STATE.Box or (state == STATE.Death and health < 0) then
+            if state == STATE.Box then
                 return
             end
         end
@@ -224,6 +225,20 @@ if SERVER then
         end)
     end
 
+    local function tryToStartNewRound()
+        local activeParts = turns.getActiveParticipants()
+        for _, activePart in ipairs(activeParts) do
+            activePart:setData("health", 2)
+            activePart:setData("state", STATE.Idle)
+        end
+        turns.setData("round", turns.getData("round") + 1)
+        turns.sendSignal("StartNewRound", {})
+        timer.simple(4, function()
+            print("items")
+            turns.startItems()
+        end)
+    end
+
     -- Take boxes and start take items
     function turns.startItems()
         local gotBox = {}
@@ -231,7 +246,7 @@ if SERVER then
             if !v:getPlayer() then goto cont end
             local currentItems = table.count(v:getData("items"))
             if v:getData("health") <= 0 then goto cont end
-            local toTake = {"beer", "cigarette_pack"} -- , "beer", "beer", "beer", "beer", "beer", "beer", "beer"}
+            local toTake = {} -- "beer", "cigarette_pack"} -- , "beer", "beer", "beer", "beer", "beer", "beer", "beer"}
             toTake = {unpack(toTake, 1, 8 - currentItems)}
             if #toTake == 0 then
                 v:setData("state", STATE.Idle)
@@ -250,15 +265,11 @@ if SERVER then
     end
 
     function turns.gameStarted()
-        turns.startItems()
+        tryToStartNewRound()
     end
 
     function turns.turnStart(part)
-        if part:getData("isJammed") then return true end
-        local shells = turns.getData("shells")
-        if #shells == 0 then
-            turns.startItems()
-        end
+        if part:getData("isJammed") or part:getData("state") == STATE.Death then return true end
     end
 
     local inputByState = {
@@ -331,6 +342,20 @@ if SERVER then
                     target:setData("health", health)
                     if health == 0 then
                         target:setData("state", STATE.Death)
+                        local someoneAlive = false
+                        for _, v in ipairs(turns.getActiveParticipants()) do
+                            if v ~= part and v:getData("state") ~= STATE.Death then
+                                someoneAlive = true
+                            end
+                        end
+
+                        if !someoneAlive then
+                            timer.simple(4, function()
+                                tryToStartNewRound()
+                            end)
+                            turns.nextTurn()
+                            return
+                        end
                     end
                 end
                 timer.simple(4, function()
@@ -482,11 +507,13 @@ else
                     timer.simple(currentPart == target and 3.5 or 0.5, function()
                         targetScreen:updateHealth()
                     end)
-                    if target:getData("health") > 0 then
-                        timer.simple(1, function()
+                    timer.simple(1, function()
+                        if target:getData("health") > 0 then
                             targetAvatar:revive()
-                        end)
-                    end
+                        else
+                            targetAvatar:spectator()
+                        end
+                    end)
                 end
                 if !(data.shootAt == 0 and data.isDeath) then
                     avatar:shootAtPlayer(shotgunHolo, data.shootAt, data.isDeath)
@@ -496,6 +523,22 @@ else
                 end
             end
         end)
+    end)
+
+    turns.signal("StartNewRound", function()
+        local activeParts = turns.getActiveParticipants()
+        for _, activePart in ipairs(activeParts) do
+            local state = activePart:getData("state")
+            local avatar = avatars[activePart.sortedId]
+            if avatar then
+                if state == STATE.Death then
+                    avatar:revive()
+                end
+                timer.simple(3, function()
+                    avatar:lookAtScreen()
+                end)
+            end
+        end
     end)
 
     local function changeTurn(lastTurn, newTurn)

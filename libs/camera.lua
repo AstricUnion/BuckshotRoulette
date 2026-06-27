@@ -166,7 +166,7 @@ hook.add("CalcView", "PinCamera", function()
     local pos = pin:getLocalPos()
     local angs = pin:getLocalAngles()
     local fov = camera:getFOV()
-    if camera.lerpRatio then
+    if camera.lerpRatio and camera.lerpRatio ~= 0 then
         local ratio = camera.lerpRatio * (game.serverFrameTime() / game.getTickInterval())
         if camera.targetPos then
             pin:setLocalPos(math.lerpVector(ratio, pos, camera.targetPos))
@@ -183,7 +183,7 @@ hook.add("CalcView", "PinCamera", function()
     return {
         origin = pos,
         angles = angs,
-        fov = fov
+        fov = camera.fov
     }
 end)
 
